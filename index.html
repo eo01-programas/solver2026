@@ -1,0 +1,351 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema HilanderÃ­a Integrado</title>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
+        <link rel="stylesheet" href="css/style.css" />
+
+</head>
+<body>
+
+<div class="app-container">
+    <div class="top-bar">
+        <div style="display:flex; align-items:center;">
+            <div class="app-title">Hilanderia System</div>
+            <div class="module-nav">
+                <button class="module-btn active" onclick="switchModule('mod-pcp')">PCP Fuente</button>
+                <button class="module-btn" onclick="switchModule('mod-balance')">Agrup Material</button>
+                <button class="module-btn" onclick="switchModule('mod-titulo')">Agrup Titulo</button>
+                <button class="module-btn" onclick="switchModule('mod-balance2')">Balance</button>
+            </div>
+        </div>
+        <div class="file-input-wrapper">
+            <input type="file" id="fileUpload" accept=".xlsx, .xls" />
+        </div>
+    </div>
+
+    <div class="main-content">
+        
+        <div id="mod-pcp" class="module-view active">
+            <div class="sub-tabs">
+                <button class="sub-tab-btn t-crudo active" onclick="switchSubTab('pcp', 'crudo')">CRUDO / NUEVO</button>
+                <button class="sub-tab-btn t-htr" onclick="switchSubTab('pcp', 'htr')">HTR</button>
+            </div>
+
+            <div id="pcp-crudo-view" class="pcp-tab-content">
+                <div id="pcp-table-crudo" class="table-wrap"><p class="empty-msg">Sube un archivo para comenzar.</p></div>
+            </div>
+            <div id="pcp-htr-view" class="pcp-tab-content" style="display:none;">
+                <div id="pcp-table-htr" class="table-wrap"><p class="empty-msg">Sube un archivo para comenzar.</p></div>
+            </div>
+
+            <div id="pcp-summary" class="kpi-grid"></div>
+        </div>
+
+        <div id="mod-balance" class="module-view">
+            
+            <div class="sub-tabs">
+                <button class="sub-tab-btn t-crudo active" onclick="switchSubTab('bal', 'crudo')">AGRUPADO CRUDO / MEZCLA</button>
+                <button class="sub-tab-btn t-htr" onclick="switchSubTab('bal', 'htr')">AGRUPADO HTR</button>
+            </div>
+
+            <div id="bal-crudo-view" class="bal-tab-content">
+                
+                <div class="nested-nav">
+                    <button class="nested-btn active" onclick="switchInnerTab('pure')">CRUDOS</button>
+                    <button class="nested-btn" onclick="switchInnerTab('mix')">MEZCLAS</button>
+                    <button class="nested-btn" onclick="switchInnerTab('summary')">RESUMEN TOTALES</button>
+                </div>
+
+                <div id="inner-pure-view" class="nested-content active">
+                    <div id="bal-table-pure"></div>
+                </div>
+                <div id="inner-mix-view" class="nested-content">
+                    <div id="bal-table-mix"></div>
+                </div>
+                <div id="inner-summary-view" class="nested-content">
+                    <div id="bal-summary-area"></div>
+                </div>
+
+            </div>
+
+            <div id="bal-htr-view" class="bal-tab-content" style="display:none;">
+                <div id="bal-table-htr"></div>
+                <div id="bal-htr-summary-area"></div>
+            </div>
+
+            <div class="balance-footer">
+                <h4 style="margin:0 0 20px 0; border-bottom:1px solid #475569; padding-bottom:15px; letter-spacing:1px; font-size:0.9rem;">
+                    RESUMEN GENERAL (<span id="footer-context-label">GLOBAL</span>)
+                </h4>
+                <div id="dynamic-footer-grid" class="footer-grid"></div>
+            </div>
+        </div>
+
+        <div id="mod-titulo" class="module-view">
+            <div class="sub-tabs">
+                <button class="sub-tab-btn t-crudo active" onclick="switchSubTab('tit', 'crudo')">CRUDO</button>
+                <button class="sub-tab-btn t-htr" onclick="switchSubTab('tit', 'htr')">HTR</button>
+            </div>
+            <div id="tit-crudo-view" class="bal-tab-content">
+                <div id="tit-table-crudo"></div>
+            </div>
+            <div id="tit-htr-view" class="bal-tab-content" style="display:none;">
+                <div id="tit-table-htr"></div>
+            </div>
+            
+            <div class="balance-footer">
+                <h4 style="margin:0 0 20px 0; border-bottom:1px solid #475569; padding-bottom:15px; letter-spacing:1px; font-size:0.9rem;">RESUMEN TOTAL</h4>
+                <div id="tit-footer-grid" class="footer-grid"></div>
+            </div>
+        </div>
+
+        <div id="mod-balance2" class="module-view">
+            <div class="nested-nav">
+                <button class="nested-btn active" onclick="switchInnerTabBal2('datos')">Datos</button>
+                <button class="nested-btn" onclick="switchInnerTabBal2('produccion')">Produccion</button>
+                <button class="nested-btn" onclick="switchInnerTabBal2('solver')">Solver</button>
+            </div>
+
+            <div id="inner2-datos-view" class="nested2-content active">
+                <div id="bal2-datos-area">
+                    <div class="bal2-datos-grid">
+                        <div class="table-wrap bal2-card" style="padding:12px;">
+                            <div class="bal-header-row"><div class="bal-title">Tipos de fallas</div></div>
+                            <table id="tbl-fallas" class="bal2-table">
+                                <thead>
+                                    <tr>
+                                        <th class="th-base">CODIGO</th>
+                                        <th class="th-base">MOTIVO</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td>MM</td><td>MANT. MECANICO</td></tr>
+                                    <tr><td>ME</td><td>MANT. ELECTRICO</td></tr>
+                                    <tr><td>FA</td><td>FALTA DE ALIMENTACION</td></tr>
+                                    <tr><td>EC</td><td>EXCESO DE CAPACIDAD</td></tr>
+                                    <tr><td>CT</td><td>CAMBIO DE TITULO</td></tr>
+                                    <tr><td>CM</td><td>CAMBIO DE MATERIAL</td></tr>
+                                    <tr><td>FM</td><td>FALLA MECANICA</td></tr>
+                                    <tr><td>FE</td><td>FALLA ELECTRICA</td></tr>
+                                    <tr><td>FF</td><td>FALTA FLUIDO ELECT.</td></tr>
+                                    <tr><td>RE</td><td>REMATE</td></tr>
+                                    <tr><td>OT</td><td>OTROS</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="table-wrap bal2-card" style="padding:12px;">
+                            <div class="bal-header-row"><div class="bal-title">Tipos de maquinas</div></div>
+                            <table id="tbl-maquinas" class="bal2-table">
+                                <thead>
+                                    <tr>
+                                        <th class="th-base">ID</th>
+                                        <th class="th-base">NOMBRE</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td>1</td><td>INGTD.(1)</td></tr>
+                                    <tr><td>2</td><td>INGTD.(2)</td></tr>
+                                    <tr><td>3</td><td>INGTD.(3)</td></tr>
+                                    <tr><td>4</td><td>INGTD.(4)</td></tr>
+                                    <tr><td>5</td><td>INGTD.(5)</td></tr>
+                                    <tr><td>6</td><td>INGTD.(6)</td></tr>
+                                    <tr><td>7</td><td>INGTD.(7)</td></tr>
+                                    <tr><td>8</td><td>INGTD.(8)</td></tr>
+                                    <tr><td>9</td><td>INGTD.(9)</td></tr>
+                                    <tr><td>10</td><td>INGTD.(10)</td></tr>
+                                    <tr><td>11</td><td>INGTD.(11)</td></tr>
+                                    <tr><td>12</td><td>INGTD.(12)</td></tr>
+                                    <tr><td>13</td><td>INGTD.(13)</td></tr>
+                                    <tr><td>14</td><td>INGTD.(14)</td></tr>
+                                    <tr><td>15</td><td>INGTD.(15)</td></tr>
+                                    <tr><td>16</td><td>ZINZER  (16)</td></tr>
+                                    <tr><td>17</td><td>ZINZER  (17)</td></tr>
+                                    <tr><td>18</td><td>ZINZER  (18)</td></tr>
+                                    <tr><td>19</td><td>ZINZER  (19)</td></tr>
+                                    <tr><td>20</td><td>ZINZER  (20)</td></tr>
+                                    <tr><td>21</td><td>ZINZER  (21)</td></tr>
+                                    <tr><td>22</td><td>ZINZER  (22)</td></tr>
+                                    <tr><td>23</td><td>ZINZER  (23)</td></tr>
+                                    <tr><td>24</td><td>ZINZER  (24)</td></tr>
+                                    <tr><td>25</td><td>ZINZER  (25)</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="table-wrap materials-wrap materials-span bal2-card" style="padding:12px;">
+                            <div class="bal-header-row"><div class="bal-title">LISTA DE MATERIALES</div></div>
+                            <table id="tbl-materiales" class="materials-table bal2-table">
+                                <thead>
+                                    <tr>
+                                        <th class="th-base">CODIGO</th>
+                                        <th class="th-base">MATERIAL</th>
+                                        <th class="th-base">FACTOR DE H.IMP.</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td class="material-code">COC1B</td><td class="material-name">CARDADO</td><td>0.6</td></tr>
+                                    <tr><td class="material-code">COA1B</td><td class="material-name">CARDADO USA</td><td>0.6</td></tr>
+                                    <tr><td class="material-code">POWOB</td><td class="material-name">COP ORG./ WOOL (52/48)</td><td>0.6</td></tr>
+                                    <tr><td class="material-code">PS75B</td><td class="material-name">PIMA/SEA (75/25%)</td><td>0.8</td></tr>
+                                    <tr><td class="material-code">PM0HB</td><td class="material-name">COP PIMA HTR</td><td>0.5</td></tr>
+                                    <tr><td class="material-code">B051B</td><td class="material-name">MEL 5 (0.78%) MARRON</td><td>0.5</td></tr>
+                                    <tr><td class="material-code">PST1B</td><td class="material-name">PIMA/SEACELL/TENCEL 50/25/25</td><td>0.5</td></tr>
+                                    <tr><td class="material-code">ABN3B</td><td class="material-name">COP PIMA ABETE NANO 98.5/1.5</td><td>0.5</td></tr>
+                                    <tr><td class="material-code">ABN4B</td><td class="material-name">COP PIMA ABETE NANO 99/1</td><td>0.5</td></tr>
+                                    <tr><td class="material-code">P751B</td><td class="material-name">COP PIMA/TENCEL STD 75/25</td><td>0.5</td></tr>
+                                    <tr><td class="material-code">M451B</td><td class="material-name">MEL 45 (45 %)</td><td>0.5</td></tr>
+                                    <tr><td class="material-code">LWCHB</td><td class="material-name">LYOCELL A100/WOOL 17.5/CHITOSAN 65/30/5</td><td>0.5</td></tr>
+                                    <tr><td class="material-code">POLCB</td><td class="material-name">COP ORG./CA&Ntilde;AMO/LYOCELL (50/30/20)</td><td>0.5</td></tr>
+                                    <tr><td class="material-code">P401B</td><td class="material-name">PES/CO 40/60 %</td><td>0.5</td></tr>
+                                    <tr><td class="material-code">R501B</td><td class="material-name">PES /COC BLANCO 2M 50</td><td>0.5</td></tr>
+                                    <tr><td class="material-code">PX01B</td><td class="material-name">COP PIMA PES XT2 (90.7/9.3%)</td><td>0.5</td></tr>
+                                    <tr><td class="material-code">PTN1B</td><td class="material-name">PIMA/TENCEL/NYLON 50/25/25</td><td></td></tr>
+                                    <tr><td class="material-code">OLW1B</td><td class="material-name">COP ORGANICO/LYOCELL STD/WOOL 18.9 (45/35/20)</td><td>0.5</td></tr>
+                                    <tr><td class="material-code">A100B</td><td class="material-name">LYOCELL A100</td><td>0.5</td></tr>
+                                    <tr><td class="material-code">TA0OB</td><td class="material-name">COP TANGUIS ORGANICO</td><td>0.6</td></tr>
+                                    <tr><td class="material-code">PS01B</td><td class="material-name">PES 100 %</td><td></td></tr>
+                                    <tr><td class="material-code">CPT1B</td><td class="material-name">COP TANGUIS</td><td>0.5</td></tr>
+                                    <tr><td class="material-code">COP1B</td><td class="material-name">PEINADO</td><td>0.8</td></tr>
+                                    <tr><td class="material-code">PT01B</td><td class="material-name">COP PIMA TENCEL STD</td><td>0.5</td></tr>
+                                    <tr><td class="material-code">PM50B</td><td class="material-name">COP/MODAL 50/50</td><td>0.5</td></tr>
+                                    <tr><td class="material-code">PM0OB</td><td class="material-name">COP PIMA</td><td>0.6</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="table-wrap materials-span bal2-card" style="padding:12px;">
+                            <div class="bal-header-row"><div class="bal-title">TIPOS DE MATERIAL</div></div>
+                            <table id="tbl-materiales-tipo" class="materials-table bal2-table">
+                                <thead>
+                                    <tr>
+                                        <th class="th-base">CODIGO</th>
+                                        <th class="th-base">MATERIAL</th>
+                                        <th class="th-base">FACTOR</th>
+                                        
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr data-code="C171S"><td class="material-code">C171S</td><td class="material-name">MEL 17 COC 100% T/S</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="CFL1B"><td class="material-code">CFL1B</td><td class="material-name">COP PIMA FLAME PPC1</td><td class="material-factor">0.6</td></tr>
+                                    <tr data-code="M141B"><td class="material-code">M141B</td><td class="material-name">MEL 14 (6.2%)</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="M171B"><td class="material-code">M171B</td><td class="material-name">MEL 17 (9.3%)</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="COC TRAMA"><td class="material-code">COC TRAMA</td><td class="material-name">LYCRA 40 D</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="COC1U"><td class="material-code">COC1U</td><td class="material-name">COC URDIMBRE</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="COC1S"><td class="material-code">COC1S</td><td class="material-name">CARDADO T/S</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="COA1S"><td class="material-code">COA1S</td><td class="material-name">CARDADO T/S USA</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="COP1S"><td class="material-code">COP1S</td><td class="material-name">PEINADO T/S</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="PS7HB"><td class="material-code">PS7HB</td><td class="material-name">PIMA/SEA (75/25%) HTR</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="B051B"><td class="material-code">B051B</td><td class="material-name">MEL 5 (0.78%) MARRON</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="M101B"><td class="material-code">M101B</td><td class="material-name">MEL 10 (1.5%)</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="B141B"><td class="material-code">B141B</td><td class="material-name">MEL 14 (6.25%) MARRON</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="M501B"><td class="material-code">M501B</td><td class="material-name">MEL 50 (50 %)</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="M201B"><td class="material-code">M201B</td><td class="material-name">MEL 20 (12.5%)</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="M451B"><td class="material-code">M451B</td><td class="material-name">MEL 45 (45 %)</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="K501B"><td class="material-code">K501B</td><td class="material-name">KOZELLA (50/50%)</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="P201B"><td class="material-code">P201B</td><td class="material-name">PES/CO 12.5/87.5 %</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="P501B"><td class="material-code">P501B</td><td class="material-name">PES/CO 50/50 %</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="R451B"><td class="material-code">R451B</td><td class="material-name">PES /COC BLANCO 2M 45</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="P501B-USA"><td class="material-code">P501B</td><td class="material-name">PES/CO 50/50 % USA</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="M261B"><td class="material-code">M261B</td><td class="material-name">MEL 26 (PES N/COC)</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="M301B"><td class="material-code">M301B</td><td class="material-name">MEL 30 (25.0/75.0%)</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="M201B-2"><td class="material-code">M201B</td><td class="material-name">MEL 20 (12.5%)</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="PS01B"><td class="material-code">PS01B</td><td class="material-name">PES 100 %</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="COS1B"><td class="material-code">COS1B</td><td class="material-name">COC SLUB TIPO 04</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="K50HB"><td class="material-code">K50HB</td><td class="material-name">KOZELLA (50/50%) HTR</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="P2M1B"><td class="material-code">P2M1B</td><td class="material-name">PESCOP 2M45</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="PTN1B"><td class="material-code">PTN1B</td><td class="material-name">PIMA/TENCEL/NYLON 50/25/25</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="F501B"><td class="material-code">F501B</td><td class="material-name">COP/TENCEL STD 50/50 FLAME TC6</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="PS01T"><td class="material-code">PS01T</td><td class="material-name">PES 100 % TRAMA</td><td class="material-factor">-</td></tr>
+                                    <tr data-code="M171B-TRAMA"><td class="material-code">M171B</td><td class="material-name">MEL 17 (PES N/PES B) TRAMA</td><td class="material-factor">-</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="table-wrap materials-span bal2-card" style="padding:12px;">
+                            <div class="bal-header-row">
+                                <div class="bal-title">TIPO DE CODIGO/TITULO</div>
+                            </div>
+                            <table id="tbl-codigos-titulo" class="materials-table bal2-table">
+                                <thead>
+                                    <tr>
+                                        <th class="th-base">CODIGO</th>
+                                        <th class="th-base">Ne</th>
+                                        <th class="th-base">MATERIAL</th>
+                                        <th class="th-base">FACTOR H. IMP.</th>
+                                        <th class="th-base">ARTICULO</th>
+                                        
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr data-code="40COC1B"><td class="material-code">40COC1B</td><td class="ct-ne">40</td><td class="ct-material">ALGODON CARDADO</td><td class="material-factor ct-factor">0.6</td><td class="ct-articulo">40/1 CARDADO</td></tr>
+                                    <tr data-code="36COC1B"><td class="material-code">36COC1B</td><td class="ct-ne">36</td><td class="ct-material">ALGODON CARDADO</td><td class="material-factor ct-factor">0.6</td><td class="ct-articulo">36/1 CARDADO</td></tr>
+                                    <tr data-code="34COC1B"><td class="material-code">34COC1B</td><td class="ct-ne">34</td><td class="ct-material">ALGODON CARDADO</td><td class="material-factor ct-factor">0.6</td><td class="ct-articulo">34/1 CARDADO</td></tr>
+                                    <tr data-code="32COC1B"><td class="material-code">32COC1B</td><td class="ct-ne">32</td><td class="ct-material">ALGODON CARDADO</td><td class="material-factor ct-factor">0.6</td><td class="ct-articulo">32/1 CARDADO</td></tr>
+                                    <tr data-code="30COC1B"><td class="material-code">30COC1B</td><td class="ct-ne">30</td><td class="ct-material">ALGODON CARDADO</td><td class="material-factor ct-factor">0.6</td><td class="ct-articulo">30/1 CARDADO</td></tr>
+                                    <tr data-code="28COC1B"><td class="material-code">28COC1B</td><td class="ct-ne">28</td><td class="ct-material">ALGODON CARDADO</td><td class="material-factor ct-factor">0.6</td><td class="ct-articulo">28/1 CARDADO</td></tr>
+                                    <tr data-code="26COC1B"><td class="material-code">26COC1B</td><td class="ct-ne">26</td><td class="ct-material">ALGODON CARDADO</td><td class="material-factor ct-factor">0.6</td><td class="ct-articulo">26/1 CARDADO</td></tr>
+                                    <tr data-code="24COC1B"><td class="material-code">24COC1B</td><td class="ct-ne">24</td><td class="ct-material">ALGODON CARDADO</td><td class="material-factor ct-factor">0.6</td><td class="ct-articulo">24/1 CARDADO</td></tr>
+                                    <tr data-code="22COC1B"><td class="material-code">22COC1B</td><td class="ct-ne">22</td><td class="ct-material">ALGODON CARDADO</td><td class="material-factor ct-factor">0.6</td><td class="ct-articulo">22/1 CARDADO</td></tr>
+                                    <tr data-code="20COC1B"><td class="material-code">20COC1B</td><td class="ct-ne">20</td><td class="ct-material">ALGODON CARDADO</td><td class="material-factor ct-factor">0.6</td><td class="ct-articulo">20/1 CARDADO</td></tr>
+                                    <tr data-code="18COC1B"><td class="material-code">18COC1B</td><td class="ct-ne">18</td><td class="ct-material">ALGODON CARDADO</td><td class="material-factor ct-factor">0.6</td><td class="ct-articulo">18/1 CARDADO</td></tr>
+                                    <tr data-code="16COC1B"><td class="material-code">16COC1B</td><td class="ct-ne">16</td><td class="ct-material">ALGODON CARDADO</td><td class="material-factor ct-factor">0.6</td><td class="ct-articulo">16/1 CARDADO</td></tr>
+                                    <tr data-code="14COC1B"><td class="material-code">14COC1B</td><td class="ct-ne">14</td><td class="ct-material">ALGODON CARDADO</td><td class="material-factor ct-factor">0.6</td><td class="ct-articulo">14/1 CARDADO</td></tr>
+                                    <tr data-code="12COC1B"><td class="material-code">12COC1B</td><td class="ct-ne">12</td><td class="ct-material">ALGODON CARDADO</td><td class="material-factor ct-factor">0.6</td><td class="ct-articulo">12/1 CARDADO</td></tr>
+                                    <tr data-code="10COC1B"><td class="material-code">10COC1B</td><td class="ct-ne">10</td><td class="ct-material">ALGODON CARDADO</td><td class="material-factor ct-factor">0.6</td><td class="ct-articulo">10/1 CARDADO</td></tr>
+                                    <tr data-code="08COC1B"><td class="material-code">08COC1B</td><td class="ct-ne">8</td><td class="ct-material">ALGODON CARDADO</td><td class="material-factor ct-factor">0.6</td><td class="ct-articulo">8/1 CARDADO</td></tr>
+                                    <tr data-code="07COC1B"><td class="material-code">07COC1B</td><td class="ct-ne">7</td><td class="ct-material">ALGODON CARDADO</td><td class="material-factor ct-factor">0.6</td><td class="ct-articulo">7/1 CARDADO</td></tr>
+                                    <tr data-code="06COC1B"><td class="material-code">06COC1B</td><td class="ct-ne">6</td><td class="ct-material">ALGODON CARDADO</td><td class="material-factor ct-factor">0.6</td><td class="ct-articulo">6/1 CARDADO</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="inner2-produccion-view" class="nested2-content" style="display:none;">
+                <div id="bal2-produccion-area" class="table-wrap"><p class="empty-msg">ProducciÃ³n: no hay datos cargados.</p></div>
+            </div>
+            <div id="inner2-solver-view" class="nested2-content" style="display:none;">
+                <div id="bal2-solver-area" class="table-wrap"><p class="empty-msg">Solver: configura parÃ¡metros y ejecuta.</p></div>
+            </div>
+
+            <div class="balance-footer">
+                <h4 style="margin:0 0 20px 0; border-bottom:1px solid #475569; padding-bottom:15px; letter-spacing:1px; font-size:0.9rem;">RESUMEN BALANCE</h4>
+                <div id="bal2-footer-grid" class="footer-grid"></div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div id="detailModal" class="modal">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closeDetailModal()">&times;</span>
+        <div class="modal-header" id="modalTitle">Detalles</div>
+        <div id="modalBody"></div>
+    </div>
+</div>
+
+<!-- Modal para agregar/mover hilados entre grupos -->
+<div id="addComponentModal" class="modal">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closeAddComponentModal()">&times;</span>
+        <div class="modal-header">Agregar / Mover Hilado</div>
+        <div id="addComponentBody"></div>
+    </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/materia.js"></script>
+<script src="js/titulo.js"></script>
+<script src="js/balance.js"></script>
+
+</body>
+</html>
+
+
+
