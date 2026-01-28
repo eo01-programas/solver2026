@@ -69,7 +69,9 @@
         let html = '';
         // AAadir placeholders de bloques vacAos para TAtulo (si existen)
         try {
-            const placeholders = (GLOBAL_DATA.emptyGroups && GLOBAL_DATA.emptyGroups.crudo) ? GLOBAL_DATA.emptyGroups.crudo : [];
+            const placeholders = (GLOBAL_DATA.emptyGroups && (tipo === 'htr' ? GLOBAL_DATA.emptyGroups.htr : GLOBAL_DATA.emptyGroups.crudo))
+                ? (tipo === 'htr' ? GLOBAL_DATA.emptyGroups.htr : GLOBAL_DATA.emptyGroups.crudo)
+                : [];
             placeholders.forEach(p => {
                 if (!grupos[p.name]) {
                     grupos[p.name] = { items: [], totalKg: 0 };
