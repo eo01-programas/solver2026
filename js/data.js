@@ -117,11 +117,13 @@
             GLOBAL_DATA.currentTab = type;
         } else if (modulePrefix === 'tit') {
             document.getElementById('tit-crudo-view').style.display = 'none';
+            document.getElementById('tit-mezcla-view').style.display = 'none';
             document.getElementById('tit-htr-view').style.display = 'none';
             document.getElementById(`tit-${type}-view`).style.display = 'block';
             const container = document.querySelector('#mod-titulo .sub-tabs');
             container.querySelectorAll('button').forEach(b => b.classList.remove('active'));
             container.querySelector(`.t-${type}`).classList.add('active');
+            GLOBAL_DATA.currentTab = (type === 'htr') ? 'htr' : 'crudo';
             renderTituloModule();
         }
     }
