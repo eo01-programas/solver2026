@@ -1,6 +1,6 @@
-﻿// Control de ventanas para el mÃ³dulo Balance (mod-balance2)
+// Control de ventanas para el mAdulo Balance (mod-balance2)
     function switchInnerTabBal2(innerType) {
-        // ocultar todas las secciones especÃ­ficas de balance2
+        // ocultar todas las secciones especAficas de balance2
         document.querySelectorAll('.nested2-content').forEach(el => {
             el.classList.remove('active');
             el.style.display = 'none';
@@ -17,7 +17,7 @@
             view.style.display = 'block';
         }
 
-        // activar el botÃ³n correspondiente
+        // activar el botAn correspondiente
         const btnMap = { datos: 0, produccion: 1, solver: 2 };
         const idx = btnMap[innerType];
         if (typeof idx === 'number') {
@@ -39,12 +39,15 @@
     function renderBalance2Datos() {
         const el = document.getElementById('bal2-datos-area');
         if (!el) return;
-        // Mantener el HTML estÃ¡tico ya definido en index.html si no hay datos externos
+        // Mantener el HTML estAtico ya definido en index.html si no hay datos externos
         if (el.dataset.locked === 'true') return;
         if (GLOBAL_DATA && GLOBAL_DATA.balance2 && Array.isArray(GLOBAL_DATA.balance2.datos) && GLOBAL_DATA.balance2.datos.length) {
             el.dataset.locked = 'true';
             el.innerHTML = renderSimpleTable(GLOBAL_DATA.balance2.datos);
             if (typeof applyTableFilters === 'function') applyTableFilters(el);
+            if (typeof applyHeaderFilters === 'function') applyHeaderFilters(el);
+        } else {
+            if (typeof applyHeaderFilters === 'function') applyHeaderFilters(el);
         }
     }
 
@@ -54,7 +57,7 @@
         if (GLOBAL_DATA && GLOBAL_DATA.balance2 && Array.isArray(GLOBAL_DATA.balance2.produccion) && GLOBAL_DATA.balance2.produccion.length) {
             el.innerHTML = renderSimpleTable(GLOBAL_DATA.balance2.produccion);
         } else {
-            el.innerHTML = '<p class="empty-msg">ProducciÃ³n: no hay datos cargados.</p>';
+            el.innerHTML = '<p class="empty-msg">ProducciAn: no hay datos cargados.</p>';
         }
         if (typeof applyTableFilters === 'function') applyTableFilters(el);
     }
@@ -99,16 +102,15 @@
             const horaEfectiva = (hora100Num !== null) ? (hora100Num * eficFactor) : null;
             const diariaKg = (horaEfectiva !== null) ? (horaEfectiva * 24) : null;
 
-            const kgSol = info && info.kgSol !== null ? info.kgSol : null;
-            const kgReq = info && info.kgReq !== null ? info.kgReq : null;
+            const kgSol = (info && info.kgSol !== null) ? info.kgSol : null;
+            const kgReq = (info && info.kgReq !== null) ? info.kgReq : null;
             const diariaReq = (kgReq !== null) ? (kgReq / 24) : null;
             const horasMaquina = (diariaReq !== null && horaEfectiva) ? (diariaReq / horaEfectiva) : null;
             const maquinas = (diariaReq !== null && diariaKg) ? (diariaReq / diariaKg) : null;
             const prod24 = (diariaReq !== null) ? (diariaReq * 24) : null;
 
-            return {
-                maquina: '',
-                ne: neVal !== null && !isNaN(neVal) ? Math.round(neVal) : '',
+                return {
+                ne: (neVal !== null && !isNaN(neVal)) ? Math.round(neVal) : '',
                 material: name,
                 kgSol: kgSol,
                 cof: '',
@@ -172,8 +174,8 @@
     function getSolverMaterialInfo(materialName) {
         try {
             if (typeof getGroupsFromData !== 'function') return null;
-            const crudoAll = GLOBAL_DATA && GLOBAL_DATA.nuevo ? GLOBAL_DATA.nuevo : [];
-            const htrAll = GLOBAL_DATA && GLOBAL_DATA.htr ? GLOBAL_DATA.htr : [];
+            const crudoAll = (GLOBAL_DATA && GLOBAL_DATA.nuevo) ? GLOBAL_DATA.nuevo : [];
+            const htrAll = (GLOBAL_DATA && GLOBAL_DATA.htr) ? GLOBAL_DATA.htr : [];
             const activeCrudo = (crudoAll.some(r => r.highlight)) ? crudoAll.filter(r => r.highlight) : crudoAll;
             const activeHtr = (htrAll.some(r => r.highlight)) ? htrAll.filter(r => r.highlight) : htrAll;
 
@@ -189,7 +191,7 @@
             if (!group) return null;
             const kgSol = (group.items || []).reduce((s, it) => s + (Number(it.kg || 0)), 0);
             const factor = isHtr ? 0.60 : 0.65;
-            const kgReq = kgSol ? (kgSol / factor) : null;
+            const kgReq = (kgSol) ? (kgSol / factor) : null;
             return { kgSol, kgReq, isHtr };
         } catch (e) {
             console.error('getSolverMaterialInfo error', e);
@@ -244,7 +246,7 @@
     function toNumber(val) {
         if (val === null || val === undefined || val === '') return null;
         const str = String(val).replace(/,/g, '');
-        const match = str.match(/-?\d+(\.\d+)?/);
+        const match = str.match(/-?\d+(?:\.\d+)?/);
         if (!match) return null;
         const num = Number(match[0]);
         return isFinite(num) ? num : null;
@@ -253,8 +255,8 @@
     function getSolverMaterialList() {
         try {
             if (typeof getGroupsFromData !== 'function') return [];
-            const crudoAll = GLOBAL_DATA && GLOBAL_DATA.nuevo ? GLOBAL_DATA.nuevo : [];
-            const htrAll = GLOBAL_DATA && GLOBAL_DATA.htr ? GLOBAL_DATA.htr : [];
+            const crudoAll = (GLOBAL_DATA && GLOBAL_DATA.nuevo) ? GLOBAL_DATA.nuevo : [];
+            const htrAll = (GLOBAL_DATA && GLOBAL_DATA.htr) ? GLOBAL_DATA.htr : [];
 
             const activeCrudo = (crudoAll.some(r => r.highlight)) ? crudoAll.filter(r => r.highlight) : crudoAll;
             const activeHtr = (htrAll.some(r => r.highlight)) ? htrAll.filter(r => r.highlight) : htrAll;
@@ -270,7 +272,7 @@
             const names = [];
             const seen = new Set();
             ordered.forEach(g => {
-                const n = (g && g.name ? g.name : '').toString().trim();
+                const n = (g && g.name) ? g.name : ''.toString().trim();
                 if (!n) return;
                 if (!seen.has(n)) { seen.add(n); names.push(n); }
             });
@@ -302,34 +304,32 @@
 
     function renderSolverTable(rows) {
         const cols = [
-            { key: 'maquina', label: 'MAQUINA' },
-            { key: 'ne', label: 'Ne' },
+            { key: 'ne', label: 'NE' },
             { key: 'material', label: 'MATERIAL' },
-            { key: 'kgSol', label: 'KG SOL' },
+            { key: 'kgSol', label: 'KG<br>SOL' },
             { key: 'cof', label: 'COF.' },
             { key: 'e', label: 'e' },
             { key: 'tpp', label: 'T. P. P.' },
             { key: 'cd', label: 'C.D' },
             { key: 'rpm', label: 'R.P.M.' },
             { key: 'husos', label: 'HUSOS' },
-            { key: 'porMin', label: 'POR MINUTO' },
-            { key: 'hora100', label: 'HORA 100% KG.' },
+            { key: 'porMin', label: 'POR<br>MINUTO' },
+            { key: 'hora100', label: 'HORA 100%<br>KG.' },
             { key: 'efic', label: 'EFIC.' },
-            { key: 'horaEfectiva', label: 'HORA Efectiva' },
-            { key: 'diariaKg', label: 'DIARIA Kg.' },
-            { key: 'diariaReq', label: 'DIARIA REQUERIDA' },
-            { key: 'horasMaquina', label: 'HORAS MAQUINA' },
+            { key: 'horaEfectiva', label: 'HORA<br>EFECTIVA' },
+            { key: 'diariaKg', label: 'DIARIA<br>KG.' },
+            { key: 'diariaReq', label: 'DIARIA<br>REQUERIDA' },
+            { key: 'horasMaquina', label: 'HORAS<br>MAQUINA' },
             { key: 'maquinas', label: 'MAQUINAS' },
-            { key: 'prod24', label: 'PROD. CON 24 DIAS (kG.)' },
+            { key: 'prod24', label: 'PROD. CON 24<br>DIAS (KG.)' },
             { key: 'obs', label: 'OBSERVACIONES' }
         ];
 
-        let html = '<div class="table-wrap"><table><thead><tr>';
+        let html = '<div class="table-wrap"><div class="bal-header-row"><div class="bal-title">CONTINUAS</div></div><table class="solver-table"><thead><tr>';
         cols.forEach(c => {
             html += `<th class=\"th-base\">${c.label}</th>`;
         });
         html += '</tr></thead><tbody>';
-        html += `<tr class="bal-subtotal"><td style="text-align:left;">CONTINUAS</td>` + `<td></td>`.repeat(cols.length - 1) + `</tr>`;
         rows.forEach(r => {
             html += '<tr>';
             cols.forEach(c => {
@@ -341,7 +341,7 @@
         // Ne Promedio
         const neVals = rows.map(r => toNumber(r.ne)).filter(v => v !== null);
         const neProm = neVals.length ? (neVals.reduce((a,b)=>a+b,0) / neVals.length) : null;
-        html += `<tr class="bal-subtotal"><td></td><td>${formatSolverValue(neProm)}</td><td>NE PROMEDIO</td>` + `<td></td>`.repeat(cols.length - 3) + `</tr>`;
+        html += `<tr class="bal-subtotal"><td>${formatSolverValue(neProm)}</td><td>NE PROMEDIO</td>` + `<td></td>`.repeat(cols.length - 2) + `</tr>`;
 
         html += '</tbody></table></div>';
         return html;
@@ -381,4 +381,4 @@
         return String(val);
     }
 
-    // (Opciones de ediciÃ³n/historial deshabilitadas por solicitud)
+    // (Opciones de ediciAn/historial deshabilitadas por solicitud)
