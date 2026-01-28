@@ -1,7 +1,7 @@
-﻿function renderBalanceModule() {
-        // En balance: Usar highlights si existen (significa que hubo correcciÃ³n), si no, usar todos.
+function renderBalanceModule() {
+        // En balance: Usar highlights si existen (significa que hubo correcciAn), si no, usar todos.
         // Pero OJO: Para arrastrar y soltar necesitamos el array real. 
-        // Si filtramos aquÃ­, perdemos la referencia al array principal.
+        // Si filtramos aquA, perdemos la referencia al array principal.
         
         // Mejor enfoque: Siempre trabajar con el array principal filtrado logicamente, 
         // pero para Drag & Drop necesitamos saber el indice en el array PRINCIPAL.
@@ -17,7 +17,7 @@
         }
 
         const groupedCrudo = getGroupsFromData(activeCrudo);
-        // Insertar placeholders de bloques vacÃ­os (crudo) si el usuario los preservÃ³
+        // Insertar placeholders de bloques vacAos (crudo) si el usuario los preservA
         if (GLOBAL_DATA.emptyGroups && Array.isArray(GLOBAL_DATA.emptyGroups.crudo)) {
             GLOBAL_DATA.emptyGroups.crudo.forEach(p => {
                 if (!groupedCrudo.some(g => (g.name || '').toString() === (p.name || ''))) {
@@ -35,7 +35,7 @@
         document.getElementById('bal-summary-area').innerHTML = generateSummaryTable(groupedCrudo, false);
 
         const groupedHtr = getGroupsFromData(activeHtr);
-        // Insertar placeholders de bloques vacÃ­os (htr) si existen
+        // Insertar placeholders de bloques vacAos (htr) si existen
         if (GLOBAL_DATA.emptyGroups && Array.isArray(GLOBAL_DATA.emptyGroups.htr)) {
             GLOBAL_DATA.emptyGroups.htr.forEach(p => {
                 if (!groupedHtr.some(g => (g.name || '').toString() === (p.name || ''))) {
@@ -57,10 +57,10 @@
         const original = rawName;
         let name = rawName.toUpperCase();
         
-        // Extraer porcentajes primero (con o sin parÃ©ntesis)
+        // Extraer porcentajes primero (con o sin parAntesis)
         let pctStr = "";
-        const pctMatch1 = name.match(/\((\d{1,3}(?:\/\d{1,3})+)\s*%?\)/);
-        const pctMatch2 = name.match(/(\d{1,3}(?:\/\d{1,3})+)\s*%/);
+            const pctMatch1 = name.match(/\((\d{1,3}(?:\/\d{1,3})+)\s*%\)/);
+            const pctMatch2 = name.match(/(\d{1,3}(?:\/\d{1,3})+)\s*%/);
         if (pctMatch1) {
             pctStr = pctMatch1[1];
         } else if (pctMatch2) {
@@ -68,7 +68,7 @@
         }
         
         // Remover todos los porcentajes del nombre
-        name = name.replace(/\(?\d{1,3}(?:\/\d{1,3})+\s*%?\)?/g, "");
+            name = name.replace(/\(?\d{1,3}(?:\/\d{1,3})+\s*%\)?/g, "");
         
         // Normalizar nombres de componentes
         name = name.replace(/TENCEL/g, "LYOCELL");
@@ -79,7 +79,7 @@
         name = name.replace(/\s*\/\s*/g, "/");
 
         // Si quedaron dos materiales juntos separados solo por espacio (ej: "PIMA LYOCELL"),
-        // conviÃ©rtelos a formato con "/" para unificar el grupo ("PIMA/LYOCELL").
+        // conviArtelos a formato con "/" para unificar el grupo ("PIMA/LYOCELL").
         name = name.replace(/\b(PIMA|LYOCELL|MODAL|TANGUIS)\s+(PIMA|LYOCELL|MODAL|TANGUIS)\b/g, '$1/$2');
         
         // Agregar porcentajes al final si existen
@@ -117,8 +117,8 @@
     function parseMixComposition(hiladoStr, kgSolicitado) {
         // Detectar porcentajes: acepta "(75/25%)" o "75/25%"
         let pctStr = '';
-        const pctMatch1 = hiladoStr.match(/\((\d{1,3}(?:\/\d{1,3})+)\s*%?\)/);
-        const pctMatch2 = hiladoStr.match(/(\d{1,3}(?:\/\d{1,3})+)\s*%/);
+            const pctMatch1 = hiladoStr.match(/\((\d{1,3}(?:\/\d{1,3})+)\s*%\)/);
+            const pctMatch2 = hiladoStr.match(/(\d{1,3}(?:\/\d{1,3})+)\s*%/);
         if (pctMatch1) {
             pctStr = pctMatch1[1];
         } else if (pctMatch2) {
@@ -126,10 +126,10 @@
         }
 
         if (!pctStr) {
-            // No hay porcentajes explÃ­citos: determinar si el hilado es COP/ORGANICO
+            // No hay porcentajes explAcitos: determinar si el hilado es COP/ORGANICO
             let cleanName = hiladoStr.toUpperCase().replace(/^\d+\/\d+\s+/, "").trim();
             const isPriority = /\bCOP\b/i.test(cleanName) || /(?:ORGANICO|ORG|ORGANIC)/i.test(cleanName);
-            const factor = isPriority ? 0.65 : 0.85;
+                const factor = isPriority ? 0.65 : 0.85;
             let k = round0(kgSolicitado / factor);
             const isAlgodon = isAlgodonText(cleanName || "CRUDO");
             return [{ name: cleanName || "CRUDO", kg: k, qq: isAlgodon ? round0(k / 46) : null, kgSol: round0(kgSolicitado) }];
@@ -138,8 +138,8 @@
         // Extraer porcentajes y normalizar a decimales (ej: "40/30/30" -> [0.40, 0.30, 0.30])
         const pcts = pctStr.split('/').map(n => parseFloat(n) / 100);
 
-        // Remover el bloque de porcentajes y el tÃ­tulo inicial (ej: "40/1")
-        let cleanName = hiladoStr.replace(/\(?\d{1,3}(?:\/\d{1,3})+\s*%?\)?/g, "").trim();
+        // Remover el bloque de porcentajes y el tAtulo inicial (ej: "40/1")
+        let cleanName = hiladoStr.replace(/\(!\d{1,3}(?:\/\d{1,3})+\s*%!\)!/g, "").trim();
         cleanName = cleanName.replace(/^\d+\/\d+\s+/, "").trim();
 
         // Parsear nombres: si contiene "/", dividir por eso. Sino, identificar materiales y agrupar
@@ -225,26 +225,26 @@
         return finalComponents;
     }
 
-    // VersiÃ³n HTR de parseMixComposition: usa 0.60 en lugar de 0.65 para primer componente
+    // VersiAn HTR de parseMixComposition: usa 0.60 en lugar de 0.65 para primer componente
     function parseMixCompositionHtr(hiladoStr, kgSolicitado) {
         // Detectar porcentajes
         let pctStr = '';
-        const pctMatch1 = hiladoStr.match(/\((\d{1,3}(?:\/\d{1,3})+)\s*%?\)/);
-        const pctMatch2 = hiladoStr.match(/(\d{1,3}(?:\/\d{1,3})+)\s*%/);
+            const pctMatch1 = hiladoStr.match(/\((\d{1,3}(?:\/\d{1,3})+)\s*%\)/);
+            const pctMatch2 = hiladoStr.match(/(\d{1,3}(?:\/\d{1,3})+)\s*%/);
         if (pctMatch1) pctStr = pctMatch1[1];
         else if (pctMatch2) pctStr = pctMatch2[1];
 
         if (!pctStr) {
             let cleanName = hiladoStr.toUpperCase().replace(/^\d+\/\d+\s+/, "").trim();
             const isPriority = /\bCOP\b/i.test(cleanName) || /(?:ORGANICO|ORG|ORGANIC)/i.test(cleanName);
-            const factor = isPriority ? 0.60 : 0.85;
+                const factor = isPriority ? 0.60 : 0.85;
             let k = round0(kgSolicitado / factor);
             const isAlgodon = isAlgodonText(cleanName || "CRUDO");
             return [{ name: cleanName || "CRUDO", kg: k, qq: isAlgodon ? round0(k / 46) : null, kgSol: round0(kgSolicitado) }];
         }
 
         const pcts = pctStr.split('/').map(n => parseFloat(n) / 100);
-        let cleanName = hiladoStr.replace(/\(?\d{1,3}(?:\/\d{1,3})+\s*%?\)?/g, "").trim();
+        let cleanName = hiladoStr.replace(/\(!\d{1,3}(?:\/\d{1,3})+\s*%!\)!/g, "").trim();
         cleanName = cleanName.replace(/^\d+\/\d+\s+/, "").trim();
         
         // Parsear nombres
@@ -334,7 +334,7 @@
         const comps = parseMixComposition(sampleStr, 1000);
 
         // Encabezados: usar directamente el nombre del componente ya procesado por parseMixComposition
-        // No aplicar limpiezas adicionales porque ya estÃ¡ limpio
+        // No aplicar limpiezas adicionales porque ya estA limpio
         return comps.map(c => {
             let name = String(c.name).toUpperCase().trim();
             return name || "COMP";
@@ -343,7 +343,7 @@
 
     // Extract base material token detectando material base + modificador
     // COP ORGANICO = TANGUIS ORGANICO (por defecto)
-    // COP PIMA ORGANICO = PIMA ORGANICO (diferente tipo de algodÃ³n)
+    // COP PIMA ORGANICO = PIMA ORGANICO (diferente tipo de algodAn)
     // NO SE PUEDEN MEZCLAR
     function getBaseMaterialToken(s) {
         if (!s) return '';
@@ -362,7 +362,7 @@
         else if (u.includes('BCI')) modifier = ' BCI';
         else if (u.includes('USTCP')) modifier = ' USTCP';
         
-        // Si solo tiene modificador sin base explÃ­cita, es TANGUIS por defecto
+        // Si solo tiene modificador sin base explAcita, es TANGUIS por defecto
         if (!baseMaterial && modifier) {
             return 'TANGUIS' + modifier;
         }
@@ -423,9 +423,9 @@
             const safeGroupName = (g.name || '').toString().replace(/\\/g, "\\\\").replace(/'/g, "\\'");
             html += `<div class="table-wrap"><div class="bal-header-row"><span class="bal-title">MATERIAL: ${g.name}</span>`;
 
-            // Si el grupo estÃ¡ vacÃ­o, mostrar botÃ³n para eliminar
+            // Si el grupo estA vacAo, mostrar botAn para eliminar
             if (g.items.length === 0) {
-                html += `<button style="margin-left:auto; padding:6px 12px; font-size:11px; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="confirmDeleteGroup('${safeGroupName}', '${tableType}')">Eliminar bloque vacÃ­o</button>`;
+                html += `<button style="margin-left:auto; padding:6px 12px; font-size:11px; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="confirmDeleteGroup('${safeGroupName}', '${tableType}')">Eliminar bloque vacAo</button>`;
             }
             html += `</div>`;
             
@@ -454,10 +454,10 @@
                 html += `</tr></thead><tbody>`;
             }
 
-            // Si estÃ¡ vacÃ­o, mostrar mensaje
+            // Si estA vacAo, mostrar mensaje
             if (g.items.length === 0) {
-                // Hacer que el bloque vacÃ­o acepte drops para permitir regresar items desde OTROS
-                html += `<tr ondragover="allowDrop(event)" ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDropToGroup(event, '${safeGroupName}', ${g.isMezcla ? 'true' : 'false'}, ${isHtr ? 'true' : 'false'})"><td colspan="${colCount || 10}" style="text-align:center; padding:30px; color:#999;"><em>Este bloque estÃ¡ vacÃ­o</em></td></tr>`;
+                // Hacer que el bloque vacAo acepte drops para permitir regresar items desde OTROS
+                html += `<tr ondragover="allowDrop(event)" ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDropToGroup(event, '${safeGroupName}', ${g.isMezcla ? 'true' : 'false'}, ${isHtr ? 'true' : 'false'})"><td colspan="${colCount || 10}" style="text-align:center; padding:30px; color:#999;"><em>Este bloque estA vacAo</em></td></tr>`;
             }
 
             // Totales especiales para COP ORGANICO LLL
@@ -562,23 +562,23 @@
 
     // Orden y alias de resumen (tabla + modal)
     const SUMMARY_ORDER = [
-        'ALGODÓN ORGANICO (OCS)',
-        'ALGODÓN UPLAND USTCP',
-        'ALGODÓN PIMA NC',
-        'ALGODÓN UPLAND',
-        'ALGODÓN TANGUIS NC BCI',
-        'ALGODÓN ORGANICO PIMA (OCS)',
+        'ALGODON ORGANICO (OCS)',
+        'ALGODON UPLAND USTCP',
+        'ALGODON PIMA NC',
+        'ALGODON UPLAND',
+        'ALGODON TANGUIS NC BCI',
+        'ALGODON ORGANICO PIMA (OCS)',
         'LYOCELL STD',
         'PES RECICLADO',
         'MODAL',
-        'ALGODÓN ORGANICO PIMA (GOTS)',
-        'CAÑAMO'
+        'ALGODON ORGANICO PIMA (GOTS)',
+        'CANAMO'
     ];
 
     const SUMMARY_ORDER_HTR = [
-        'ALGODÓN PIMA NC',
-        'ALGODÓN ORGANICO (OCS)',
-        'ALGODÓN ORGANICO PIMA (OCS)',
+        'ALGODON PIMA NC',
+        'ALGODON ORGANICO (OCS)',
+        'ALGODON ORGANICO PIMA (OCS)',
         'LYOCELL STD',
         'PES RECICLADO'
     ];
@@ -603,19 +603,19 @@
     SUMMARY_ORDER.forEach(name => SUMMARY_DISPLAY_BY_NORM.set(normalizeSummaryKey(name), name));
 
     const SUMMARY_ALIAS_TO_DISPLAY = new Map([
-        ['TANGUIS ORGANICO (OCS)', 'ALGODÓN ORGANICO (OCS)'],
-        ['PIMA ORGANICO (OCS)', 'ALGODÓN ORGANICO PIMA (OCS)'],
-        ['PIMA (OCS)', 'ALGODÓN ORGANICO PIMA (OCS)'],
-        ['PIMA OCS', 'ALGODÓN ORGANICO PIMA (OCS)'],
-        ['PIMA ORGANICO (GOTS)', 'ALGODÓN ORGANICO PIMA (GOTS)'],
-        ['TANGUIS BCI', 'ALGODÓN TANGUIS NC BCI'],
-        ['TANGUIS USTCP', 'ALGODÓN UPLAND USTCP'],
+        ['TANGUIS ORGANICO (OCS)', 'ALGODON ORGANICO (OCS)'],
+        ['PIMA ORGANICO (OCS)', 'ALGODON ORGANICO PIMA (OCS)'],
+        ['PIMA (OCS)', 'ALGODON ORGANICO PIMA (OCS)'],
+        ['PIMA OCS', 'ALGODON ORGANICO PIMA (OCS)'],
+        ['PIMA ORGANICO (GOTS)', 'ALGODON ORGANICO PIMA (GOTS)'],
+        ['TANGUIS BCI', 'ALGODON TANGUIS NC BCI'],
+        ['TANGUIS USTCP', 'ALGODON UPLAND USTCP'],
         ['LYOCELL', 'LYOCELL STD'],
         ['PES REPREVE', 'PES RECICLADO'],
         ['PES PREPREVE', 'PES RECICLADO'],
         ['PES RECICLADO', 'PES RECICLADO'],
-        ['PIMA', 'ALGODÓN PIMA NC'],
-        ['TANGUIS', 'ALGODÓN UPLAND']
+        ['PIMA', 'ALGODON PIMA NC'],
+        ['TANGUIS', 'ALGODON UPLAND']
     ].map(([k, v]) => [normalizeSummaryKey(k), v]));
 
     function mapSummaryDisplayName(name) {
@@ -687,7 +687,7 @@
 
         // Orden preferido para el resumen (si existe en los datos)
 
-        // Reagrupar usando el nombre de display para que también se sumen kilos de alias
+        // Reagrupar usando el nombre de display para que tambien se sumen kilos de alias
         const aggregated = new Map(); // displayName -> { kg, orders:Set }
         materialsMap.forEach((data, rawName) => {
             const display = mapSummaryDisplayName(rawName);
@@ -717,8 +717,8 @@
             return b.kg - a.kg;
         });
 
-        // Procesar items que estÃ©n en 'OTROS' cuando el resumen no los incluye en grupos
-        // (ej: HTR donde se excluye OTROS). Evita duplicar si OTROS ya estÃ¡ presente.
+        // Procesar items que estAn en 'OTROS' cuando el resumen no los incluye en grupos
+        // (ej: HTR donde se excluye OTROS). Evita duplicar si OTROS ya estA presente.
         const hasOtrosGroup = groups.some(g => (g.name || '').toString().toUpperCase() === 'OTROS');
         try {
             if (!hasOtrosGroup) {
@@ -732,7 +732,7 @@
                             comps.forEach(c => {
                                 const mapped = mapComponentToBase(c.name, crudoKeys);
                                 const target = mapped || c.name;
-                                // Si el hilado original tiene certificaciÃ³n, propagarla al nombre
+                                // Si el hilado original tiene certificaciAn, propagarla al nombre
                                 let finalTarget = target;
                                 const hiladoStr = (it.hilado || '').toUpperCase();
                                 if (/(?:ORGANICO|ORG|ORGANIC)/i.test(c.name)) {
@@ -742,7 +742,7 @@
                                 addToMat(finalTarget, c.kg, it.orden);
                             });
                         } else {
-                            // No es mezcla: tratar como un material Ãºnico llamado 'OTROS'
+                            // No es mezcla: tratar como un material Anico llamado 'OTROS'
                             const factor = isHtr ? 0.60 : 0.65;
                             const kgReq = round0((it.kg || 0) / factor);
                             addToMat('OTROS', kgReq, it.orden);
@@ -752,7 +752,7 @@
             }
         } catch(e) { console.error('generateSummaryTable OTROS aggregation error', e); }
 
-        // BotÃ³n para agregar a OTROS (usa currentTab para seleccionar candidatos)
+        // BotAn para agregar a OTROS (usa currentTab para seleccionar candidatos)
         const targetOtros = btoa('OTROS');
         const addBtn = `<div style="margin-bottom:8px; text-align:right;"><button style="padding:6px 10px; background:#10b981; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="openAddComponentModal('${targetOtros}', ${!isHtr})">+ Agregar a OTROS</button></div>`;
 
@@ -764,7 +764,7 @@
         let grandDiasHas = false;
         rows.forEach(r => {
             const encoded = btoa(r.name);
-            // Nota: El botÃ³n eliminar se muestra ahora dentro del modal de detalle.
+            // Nota: El botAn eliminar se muestra ahora dentro del modal de detalle.
             html += `<tr><td style="text-align:left; font-weight:600;"> <span style="cursor:pointer;" onclick="showSummaryDetails('${encoded}')">${r.name}</span></td><td>${fmt(round0(r.kg))}</td><td>${fmt(r.qq)}</td><td>${fmt(r.ingresos)}</td><td>${fmt(r.dias)}</td></tr>`;
             grandKg += r.kg;
             if (r.qq !== null && r.qq !== undefined) {
@@ -863,10 +863,10 @@
         });
 
         let modalHTML = `<div style="font-size: 12px;">`;
-        // BotÃ³n para agregar/mover hilados hacia este grupo y botÃ³n eliminar dentro del modal
+        // BotAn para agregar/mover hilados hacia este grupo y botAn eliminar dentro del modal
         modalHTML += `<div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
             <button style="padding:6px 10px; background:#10b981; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="openAddComponentModal('${btoa(groupName)}', ${isCrudo})">+ Agregar/Mover</button>
-            <button style="padding:6px 10px; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="if(confirm('Eliminar grupo ${groupName}?')){ deleteGroupByEncoded('${encodedGroupName}', ${isCrudo ? 'false' : 'true'}); closeDetailModal(); }">&#x1F5D1;&#xFE0F; Eliminar</button>
+            <button style="padding:6px 10px; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="if(confirm('Eliminar grupo ${groupName}!')){ deleteGroupByEncoded('${encodedGroupName}', ${isCrudo ? 'false' : 'true'}); closeDetailModal(); }">&#x1F5D1;&#xFE0F; Eliminar</button>
         </div>`;
         modalHTML += `<h3 style="color: #0f172a; margin-bottom: 20px;">DETALLES DE: ${groupName}</h3>`;
 
@@ -908,7 +908,7 @@
             ? (GLOBAL_DATA.nuevo.some(r=>r.highlight) ? GLOBAL_DATA.nuevo.filter(r=>r.highlight) : GLOBAL_DATA.nuevo)
             : (GLOBAL_DATA.htr.some(r=>r.highlight) ? GLOBAL_DATA.htr.filter(r=>r.highlight) : GLOBAL_DATA.htr);
 
-        // Calcular mÃ©tricas NE globales siempre (usar arrays completos, no solo highlights)
+        // Calcular mAtricas NE globales siempre (usar arrays completos, no solo highlights)
         const neCrudoVal = computeWeightedNe(GLOBAL_DATA.nuevo || []);
         const neHtrVal = computeWeightedNe(GLOBAL_DATA.htr || []);
         const neTotalVal = computeWeightedNe(((GLOBAL_DATA.nuevo || []).concat(GLOBAL_DATA.htr || [])));
@@ -1009,7 +1009,7 @@
 
     function confirmMoveItem(itemId, encodedTargetGroup) {
         const targetGroup = atob(encodedTargetGroup);
-        if (!confirm(`Â¿Desea mover este hilado al grupo ${targetGroup}?`)) return;
+        if (!confirm(`ADesea mover este hilado al grupo ${targetGroup}!`)) return;
         moveItemToGroup(itemId, targetGroup);
     }
 
@@ -1038,7 +1038,7 @@
         }
         let found = updateInArray(GLOBAL_DATA.nuevo) || updateInArray(GLOBAL_DATA.nuevoOriginal) || updateInArray(GLOBAL_DATA.htr) || updateInArray(GLOBAL_DATA.htrOriginal);
         console.log('moveItemToGroup: moved', itemId, '->', targetGroup, 'found=', found);
-        if (!found) { alert('No se encontrÃ³ la fila.'); closeAddComponentModal(); return; }
+        if (!found) { alert('No se encontrA la fila.'); closeAddComponentModal(); return; }
 
         // Recompute highlights and rerender
         identifyIncludedRows(GLOBAL_DATA.nuevo, GLOBAL_DATA.excelTotals.crudo);
@@ -1056,14 +1056,14 @@
         try {
             const grouped = getGroupsFromData(GLOBAL_DATA.nuevo.concat(GLOBAL_DATA.htr));
             const hasOtros = grouped.some(g => (g.name || '').toString().toUpperCase() === 'OTROS');
-            console.log('moveItemToGroup: grouped contains OTROS?', hasOtros);
+            console.log('moveItemToGroup: grouped contains OTROS!', hasOtros);
             // Si encontramos items con group OTROS pero no hay grupo en grouped (caso raro), forzar placeholder
             const anyItemOtros = GLOBAL_DATA.nuevo.concat(GLOBAL_DATA.htr).some(it => (it.group || '').toString().toUpperCase() === 'OTROS');
             if (anyItemOtros && !hasOtros) {
                 // Forzar placeholder en crudo por defecto
                 addEmptyGroup('OTROS', 'pure');
                 renderBalanceModule();
-                console.warn('moveItemToGroup: Forzado placeholder OTROS porque se detectÃ³ inconsistencia');
+                console.warn('moveItemToGroup: Forzado placeholder OTROS porque se detectA inconsistencia');
             }
         } catch(e) { console.error('moveItemToGroup debug error', e); }
     }
@@ -1128,7 +1128,7 @@
             const targetIndex = dataArr.findIndex(i => i._id === targetId);
 
             if (draggedIndex === -1 || targetIndex === -1) {
-                console.warn('No se encontrÃ³ hilado a mover');
+                console.warn('No se encontrA hilado a mover');
                 draggedId = null;
                 return;
             }
@@ -1138,26 +1138,26 @@
             const originalGroup = draggedItem.group;
             const originalTitulo = draggedItem.titulo;
             const originalIsMezcla = !!draggedItem.isMezcla;
-            const originalIndex = draggedIndex; // Guardar Ã­ndice original
+            const originalIndex = draggedIndex; // Guardar Andice original
 
-            // Detectar si estamos en el mÃ³dulo TÃ­tulo
+            // Detectar si estamos en el mAdulo TAtulo
             let tituloModuleActive = false;
             try {
                 tituloModuleActive = document.getElementById('mod-titulo').classList.contains('active');
             } catch(e) {}
 
-            // Si estamos en TÃ­tulo: cambiar `titulo` (no `group`)
+            // Si estamos en TAtulo: cambiar `titulo` (no `group`)
             // Si estamos en Material: cambiar `group` (como siempre)
             if (tituloModuleActive) {
                 draggedItem.titulo = targetItem.titulo;
-                console.log('Hilado movido a tÃ­tulo:', draggedItem.titulo);
+                console.log('Hilado movido a tAtulo:', draggedItem.titulo);
             } else {
                 draggedItem.group = targetItem.group;
                 draggedItem.isMezcla = targetItem.isMezcla;
                 console.log('Hilado movido a grupo:', draggedItem.group);
             }
 
-            // LOGICA DE REORDENAMIENTO: mover el item a despuÃ©s del destino
+            // LOGICA DE REORDENAMIENTO: mover el item a despuAs del destino
             dataArr.splice(draggedIndex, 1);
             let newTargetIndex = dataArr.findIndex(i => i._id === targetId);
             if (newTargetIndex >= 0) {
@@ -1166,7 +1166,7 @@
                 dataArr.push(draggedItem);
             }
             
-            // Detectar si el bloque original quedÃ³ vacÃ­o (grupo o tÃ­tulo segÃºn mÃ³dulo)
+            // Detectar si el bloque original quedA vacAo (grupo o tAtulo segAn mAdulo)
             let remainingInBlock = [];
             let blockName = '';
             if (tituloModuleActive) {
@@ -1178,22 +1178,22 @@
             }
 
             if (remainingInBlock.length === 0 && blockName && blockName.toUpperCase() !== 'OTROS') {
-                // Bloque quedÃ³ vacÃ­o, mostrar diÃ¡logo SIN renderizar aÃºn
+                // Bloque quedA vacAo, mostrar diAlogo SIN renderizar aAn
                 setTimeout(() => {
-                    if (confirm(`Â¿Deseas eliminar el bloque vacÃ­o "${blockName}" o mantenerlo vacÃ­o?\n\nCancelar = Mantener vacÃ­o\nAceptar = Eliminar`)) {
-                        // Usuario aceptÃ³: eliminar el bloque
+                    if (confirm(`ADeseas eliminar el bloque vacAo "${blockName}" o mantenerlo vacAo!\n\nCancelar = Mantener vacAo\nAceptar = Eliminar`)) {
+                        // Usuario aceptA: eliminar el bloque
                         if (tituloModuleActive) {
-                            // En TÃ­tulo, solo re-renderizar (el bloque no aparecerÃ¡ porque no hay items con ese titulo)
+                            // En TAtulo, solo re-renderizar (el bloque no aparecerA porque no hay items con ese titulo)
                             renderTituloModule();
                         } else {
                             deleteGroup(blockName, isCrudo ? (originalIsMezcla ? 'mix' : 'pure') : 'htr');
                         }
                     } else {
-                        // Usuario cancelÃ³: revertir cambios (titulo Y posiciÃ³n en array)
+                        // Usuario cancelA: revertir cambios (titulo Y posiciAn en array)
                         if (tituloModuleActive) {
-                            // Revertir el cambio de tÃ­tulo al original
+                            // Revertir el cambio de tAtulo al original
                             draggedItem.titulo = originalTitulo;
-                            // Revertir posiciÃ³n en array: remover de posiciÃ³n actual e insertar en posiciÃ³n original
+                            // Revertir posiciAn en array: remover de posiciAn actual e insertar en posiciAn original
                             const currentIdx = dataArr.findIndex(i => i._id === draggedId);
                             if (currentIdx !== -1) {
                                 dataArr.splice(currentIdx, 1);
@@ -1212,7 +1212,7 @@
                     }
                 }, 100);
             } else {
-                // Forzar recÃ¡lculo del mÃ³dulo
+                // Forzar recAlculo del mAdulo
                 if (tituloModuleActive) {
                     renderTituloModule();
                 } else {
@@ -1237,7 +1237,7 @@
         }
 
         if (!draggedId) return;
-        // Try usar draggedItemRef primero (mÃ¡s robusto)
+        // Try usar draggedItemRef primero (mAs robusto)
         let item = null;
         if (draggedItemRef && draggedItemRef.item) {
             item = draggedItemRef.item;
@@ -1251,35 +1251,35 @@
                 if (draggedIndex === -1) { draggedId = null; draggedItemRef = null; return; }
                 item = dataArr[draggedIndex];
             }
-            // Guardar el grupo original para detectar si quedarÃ¡ vacÃ­o
+            // Guardar el grupo original para detectar si quedarA vacAo
             const originalGroup = item.group;
             const originalIsMezcla = !!item.isMezcla;
 
             // Reasignar grupo a OTROS y marcar como no mezcla
             item.group = 'OTROS';
             item.isMezcla = false;
-            // Si estamos en el mÃ³dulo TÃ­tulo, asignar tambiÃ©n al bloque de tÃ­tulo OTROS
+            // Si estamos en el mAdulo TAtulo, asignar tambiAn al bloque de tAtulo OTROS
             try {
                 const tituloModuleActive = document.getElementById('mod-titulo').classList.contains('active');
                 if (tituloModuleActive) item.titulo = 'OTROS';
             } catch(e) {}
 
             // Mover al final del array
-            // Solo hacer splice si encontramos el Ã­ndice
+            // Solo hacer splice si encontramos el Andice
             const idxInArr = dataArr.findIndex(i => i._id === draggedId);
             if (idxInArr !== -1) dataArr.splice(idxInArr, 1);
             dataArr.push(item);
 
-            // Detectar si el grupo original quedÃ³ vacÃ­o
+            // Detectar si el grupo original quedA vacAo
             const remainingInGroup = dataArr.filter(r => (r.group || '').toString() === originalGroup);
             if (remainingInGroup.length === 0 && originalGroup && originalGroup.toUpperCase() !== 'OTROS') {
-                // Grupo quedÃ³ vacÃ­o, mostrar diÃ¡logo SIN renderizar aÃºn
+                // Grupo quedA vacAo, mostrar diAlogo SIN renderizar aAn
                 setTimeout(() => {
-                    if (confirm(`Â¿Deseas eliminar el bloque vacÃ­o "${originalGroup}" o mantenerlo vacÃ­o?\n\nCancelar = Mantener vacÃ­o\nAceptar = Eliminar`)) {
-                        // Usuario aceptÃ³: eliminar el grupo
+                    if (confirm(`ADeseas eliminar el bloque vacAo "${originalGroup}" o mantenerlo vacAo!\n\nCancelar = Mantener vacAo\nAceptar = Eliminar`)) {
+                        // Usuario aceptA: eliminar el grupo
                         deleteGroup(originalGroup, isCrudo ? (originalIsMezcla ? 'mix' : 'pure') : 'htr');
                     } else {
-                        // Usuario cancelÃ³: preservar el bloque vacÃ­o y renderizar
+                        // Usuario cancelA: preservar el bloque vacAo y renderizar
                         addEmptyGroup(originalGroup, isCrudo ? (originalIsMezcla ? 'mix' : 'pure') : 'htr');
                         renderBalanceModule();
                     }
@@ -1295,7 +1295,7 @@
         }
     }
 
-    // Permitir soltar sobre un bloque vacÃ­o para mover el item al grupo target
+    // Permitir soltar sobre un bloque vacAo para mover el item al grupo target
     function handleDropToGroup(e, targetGroupName, isMez, isHtr) {
         e.preventDefault();
         try {
@@ -1342,7 +1342,7 @@
         finally { draggedId = null; }
     }
 
-    // Permitir soltar sobre un BLOQUE de TÃTULO para cambiar el `titulo` del Ã­tem
+    // Permitir soltar sobre un BLOQUE de TATULO para cambiar el `titulo` del Atem
     function handleDropToTitle(e, targetTitle, isMez, isHtr) {
         e.preventDefault();
         try {
@@ -1352,7 +1352,7 @@
             const useHtr = (typeof isHtr !== 'undefined') ? Boolean(isHtr) : !isCrudo;
             const dataArr = useHtr ? GLOBAL_DATA.htr : GLOBAL_DATA.nuevo;
             if (!draggedId) { console.warn('handleDropToTitle: no draggedId'); return; }
-            // Buscar el Ã­tem en todos los arrays posibles (incluyendo originales)
+            // Buscar el Atem en todos los arrays posibles (incluyendo originales)
             const searchArrays = [GLOBAL_DATA.nuevo, GLOBAL_DATA.nuevoOriginal, GLOBAL_DATA.htr, GLOBAL_DATA.htrOriginal];
             let found = false;
             for (let arr of searchArrays) {
@@ -1360,16 +1360,16 @@
                 const i = arr.findIndex(x => x && x._id === draggedId);
                 if (i !== -1) {
                     const item = arr.splice(i,1)[0];
-                    // Asignar nuevo tÃ­tulo
+                    // Asignar nuevo tAtulo
                     item.titulo = targetTitle;
-                    // AÃ±adir al array objetivo (dataArr puede ser el mismo u otro)
+                    // AAadir al array objetivo (dataArr puede ser el mismo u otro)
                     dataArr.push(item);
                     found = true;
                     console.log('handleDropToTitle: moved item', item._id, 'to title', targetTitle);
                     break;
                 }
             }
-            // Si no se encontrÃ³ en los originales, buscar dentro del dataArr y actualizar titulo en sitio
+            // Si no se encontrA en los originales, buscar dentro del dataArr y actualizar titulo en sitio
             if (!found) {
                 const idx = dataArr.findIndex(i => i._id === draggedId);
                 if (idx !== -1) {
@@ -1406,14 +1406,14 @@
         finally { draggedId = null; }
     }
 
-    // Confirmar eliminaciÃ³n de grupo vacÃ­o
+    // Confirmar eliminaciAn de grupo vacAo
     function confirmDeleteGroup(groupName, tableType) {
-        if (confirm(`Â¿Deseas eliminar el bloque vacÃ­o "${groupName}"?`)) {
+        if (confirm(`ADeseas eliminar el bloque vacAo "${groupName}"!`)) {
             deleteGroup(groupName, tableType);
         }
     }
 
-    // Eliminar grupo vacÃ­o
+    // Eliminar grupo vacAo
     function deleteGroup(groupName, tableType) {
         // Buscar y eliminar del array correspondiente
         if (tableType === 'pure') {
@@ -1435,7 +1435,7 @@
         renderBalanceModule();
     }
 
-    // AÃ±adir placeholder para un bloque vacÃ­o (evita duplicados)
+    // AAadir placeholder para un bloque vacAo (evita duplicados)
     function addEmptyGroup(groupName, tableType) {
         if (!groupName) return;
         if (!GLOBAL_DATA.emptyGroups) GLOBAL_DATA.emptyGroups = { crudo: [], htr: [] };
