@@ -14,6 +14,7 @@
         .module-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; box-shadow: 0 0 10px rgba(59, 130, 246, 0.3); }
         
         .file-input-wrapper input { color: #cbd5e1; font-size: 0.85rem; }
+        .app-version { color: #94a3b8; font-size: 0.75rem; font-weight: 700; margin-right: 10px; letter-spacing: 0.5px; }
 
         /* CONTENIDO */
         .main-content { flex: 1; padding: 20px; overflow-y: auto; }
@@ -222,4 +223,3 @@
         .modal-item { padding: 12px; margin: 8px 0; background: #f1f5f9; border-left: 4px solid #3b82f6; border-radius: 4px; font-size: 13px; }
         .modal-item-label { font-weight: 600; color: #334155; }
         .modal-item-value { color: #64748b; margin-top: 5px; }
-
