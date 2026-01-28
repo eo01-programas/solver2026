@@ -39,6 +39,19 @@
         return String(text).replace(/\b(ORGANICO|ORGANIC|ORG)\b/i, `$1 (${certShort})`);
     }
 
+    // Evitar duplicados tipo "(OCS) OCS" o "(GOTS) GOTS"
+    function normalizeCertText(text) {
+        if (!text) return text;
+        let s = String(text);
+        if (/\(OCS\)/i.test(s)) {
+            s = s.replace(/\s+\bOCS\b/gi, '');
+        }
+        if (/\(GOTS\)/i.test(s)) {
+            s = s.replace(/\s+\bGOTS\b/gi, '');
+        }
+        return s.replace(/\s{2,}/g, ' ').trim();
+    }
+
     // ID Generator for Drag & Drop
     function generateId() {
         return 'row_' + Math.random().toString(36).substr(2, 9);
@@ -387,6 +400,7 @@
                         const certShort = getClientCert(clienteStr); // 'OCS' or 'GOTS'
                         // Append certification after ORG/ORGANICO/ORGANIC where appropriate
                         rawHilado = addCertToOrganico(rawHilado, certShort);
+                        rawHilado = normalizeCertText(rawHilado);
                     } catch(e) {}
                     // -------------------------------------------------------------------------------
 
@@ -597,11 +611,12 @@
     // Recalcula y aplica el nuevo hilado a todas las ocurrencias iguales en los arrays globales
     function applyHiladoChange(oldHilado, newHilado) {
         if(!oldHilado || !newHilado) return;
+        const normalizedNewHilado = normalizeCertText(newHilado);
         let updatedCount = 0;
         function updateArray(arr) {
             for(let i=0;i<arr.length;i++){
                 if(String(arr[i].hilado || '') === String(oldHilado)){
-                    arr[i].hilado = newHilado;
+                    arr[i].hilado = normalizedNewHilado;
                     // Recalcular campos derivados
                     recalcItemFields(arr[i]);
                     updatedCount++;
