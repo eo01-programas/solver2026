@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema HilanderÃ­a Integrado</title>
+    <title>Sistema Hilanderia Integrado</title>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
         <link rel="stylesheet" href="css/style.css" />
@@ -88,10 +88,14 @@
         <div id="mod-titulo" class="module-view">
             <div class="sub-tabs">
                 <button class="sub-tab-btn t-crudo active" onclick="switchSubTab('tit', 'crudo')">CRUDO</button>
+                <button class="sub-tab-btn t-mezcla" onclick="switchSubTab('tit', 'mezcla')">MEZCLA</button>
                 <button class="sub-tab-btn t-htr" onclick="switchSubTab('tit', 'htr')">HTR</button>
             </div>
             <div id="tit-crudo-view" class="bal-tab-content">
                 <div id="tit-table-crudo"></div>
+            </div>
+            <div id="tit-mezcla-view" class="bal-tab-content" style="display:none;">
+                <div id="tit-table-mezcla"></div>
             </div>
             <div id="tit-htr-view" class="bal-tab-content" style="display:none;">
                 <div id="tit-table-htr"></div>
@@ -115,7 +119,7 @@
                     <div class="bal2-datos-grid">
                         <div class="table-wrap bal2-card" style="padding:12px;">
                             <div class="bal-header-row"><div class="bal-title">Tipos de fallas</div></div>
-                            <table id="tbl-fallas" class="bal2-table">
+                            <table id="tbl-fallas" class="bal2-table data-filter">
                                 <thead>
                                     <tr>
                                         <th class="th-base">CODIGO</th>
@@ -140,7 +144,7 @@
 
                         <div class="table-wrap bal2-card" style="padding:12px;">
                             <div class="bal-header-row"><div class="bal-title">Tipos de maquinas</div></div>
-                            <table id="tbl-maquinas" class="bal2-table">
+                            <table id="tbl-maquinas" class="bal2-table data-filter">
                                 <thead>
                                     <tr>
                                         <th class="th-base">ID</th>
@@ -179,7 +183,7 @@
 
                         <div class="table-wrap materials-wrap materials-span bal2-card" style="padding:12px;">
                             <div class="bal-header-row"><div class="bal-title">LISTA DE MATERIALES</div></div>
-                            <table id="tbl-materiales" class="materials-table bal2-table">
+                            <table id="tbl-materiales" class="materials-table bal2-table data-filter">
                                 <thead>
                                     <tr>
                                         <th class="th-base">CODIGO</th>
@@ -220,7 +224,7 @@
 
                         <div class="table-wrap materials-span bal2-card" style="padding:12px;">
                             <div class="bal-header-row"><div class="bal-title">TIPOS DE MATERIAL</div></div>
-                            <table id="tbl-materiales-tipo" class="materials-table bal2-table">
+                            <table id="tbl-materiales-tipo" class="materials-table bal2-table data-filter">
                                 <thead>
                                     <tr>
                                         <th class="th-base">CODIGO</th>
@@ -270,7 +274,7 @@
                             <div class="bal-header-row">
                                 <div class="bal-title">TIPO DE CODIGO/TITULO</div>
                             </div>
-                            <table id="tbl-codigos-titulo" class="materials-table bal2-table">
+                            <table id="tbl-codigos-titulo" class="materials-table bal2-table data-filter">
                                 <thead>
                                     <tr>
                                         <th class="th-base">CODIGO</th>
@@ -307,10 +311,10 @@
                 </div>
             </div>
             <div id="inner2-produccion-view" class="nested2-content" style="display:none;">
-                <div id="bal2-produccion-area" class="table-wrap"><p class="empty-msg">ProducciÃ³n: no hay datos cargados.</p></div>
+                <div id="bal2-produccion-area" class="table-wrap"><p class="empty-msg">ProducciAn: no hay datos cargados.</p></div>
             </div>
             <div id="inner2-solver-view" class="nested2-content" style="display:none;">
-                <div id="bal2-solver-area" class="table-wrap"><p class="empty-msg">Solver: configura parÃ¡metros y ejecuta.</p></div>
+                <div id="bal2-solver-area" class="table-wrap"><p class="empty-msg">Solver: configura parAmetros y ejecuta.</p></div>
             </div>
 
             <div class="balance-footer">
@@ -346,6 +350,5 @@
 
 </body>
 </html>
-
 
 
