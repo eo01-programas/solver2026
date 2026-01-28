@@ -1,4 +1,4 @@
-﻿/* ESTILOS GENERALES */
+/* ESTILOS GENERALES */
         body { font-family: Helvetica, Arial, 'Segoe UI', Verdana, sans-serif; background-color: #f1f5f9; padding: 0; margin: 0; color: #334155; font-size: 12px; user-select: none; -webkit-text-size-adjust: 100%; }
         .app-container { max-width: 100%; display: flex; flex-direction: column; height: 100vh; }
         
@@ -48,7 +48,46 @@
         .bal2-card .bal-header-row { border-radius: 6px 6px 0 0; margin: -12px -12px 10px -12px; }
         .bal2-card .bal-title { font-size: 12px; }
         .bal2-table { min-width: 0; width: 100%; table-layout: fixed; }
-        .bal2-table th { position: static; top: auto; }
+        .bal2-table th { position: sticky; top: 0; z-index: 12; }
+        .bal2-table.data-filter th { padding-right: 26px; }
+        .bal2-table.data-filter th.filter-active { box-shadow: inset 0 -2px 0 rgba(59,130,246,0.8); }
+        .th-filter-btn {
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 18px;
+            height: 18px;
+            border: none;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.12);
+            color: #e2e8f0;
+            font-size: 10px;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .th-filter-btn:hover { background: rgba(255,255,255,0.2); }
+        .filter-menu {
+            position: absolute;
+            right: 6px;
+            top: calc(100% + 6px);
+            background: #ffffff;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.12);
+            min-width: 180px;
+            max-height: 240px;
+            overflow: auto;
+            padding: 8px 8px 6px 8px;
+            z-index: 40;
+        }
+        .filter-menu .filter-title { font-weight: 700; font-size: 11px; margin-bottom: 6px; }
+        .filter-menu label { display: flex; align-items: center; gap: 6px; font-size: 11px; padding: 2px 2px; cursor: pointer; }
+        .filter-menu hr { border: 0; border-top: 1px solid #e2e8f0; margin: 6px 0; }
         .bal2-table th, .bal2-table td { white-space: nowrap; }
         .bal2-table td:last-child { text-align: left; padding-left: 10px; }
         @media (max-width: 1100px) {
@@ -62,12 +101,9 @@
         .material-factor { text-align: center; width: 90px; }
         .ct-material, .ct-articulo { text-align: left; white-space: normal; }
         .ct-ne, .ct-factor { text-align: center; width: 70px; }
+        .solver-table th { white-space: normal; word-break: break-word; line-height: 1.1; }
 
-        /* Filtros por columna */
-        .table-filter-row th { background: #f8fafc; padding: 6px 6px; color: #334155; text-transform: none; }
-        .table-filter-row th { position: sticky; top: 40px; z-index: 9; }
-        .table-filter-input { width: 100%; padding: 4px 6px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 4px; }
-        .bal2-table .table-filter-row th { position: static; top: auto; }
+        /* Iconos tipo filtro en encabezados Balance */
 
         /* TABLAS - ESTETICA */
         .table-wrap, .table-wrapper { overflow: auto; max-height: 78vh; background: white; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); margin-bottom: 25px; border: 1px solid #cbd5e1; position: relative; }
@@ -109,7 +145,7 @@
             font-weight: 700;
         }
 
-        /* BotÃ³n lÃ¡piz pequeÃ±o dentro de celdas de hilado */
+        /* BotAn lApiz pequeAo dentro de celdas de hilado */
         .edit-pencil {
             position: absolute;
             top: 6px;
