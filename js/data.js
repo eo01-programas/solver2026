@@ -1,4 +1,4 @@
-﻿// --- ESTADO GLOBAL ---
+// --- ESTADO GLOBAL ---
     let GLOBAL_DATA = { 
         nuevo: [], htr: [], 
         excelTotals: { crudo: null, htr: null, global: null, ne: null },
@@ -10,7 +10,7 @@
         currentTab: 'crudo'
     };
 
-    // Mapeo cliente -> certificaciÃ³n por defecto (puedes extenderlo)
+    // Mapeo cliente -> certificaciAn por defecto (puedes extenderlo)
     const CLIENT_DEFAULT_CERT = {
         'LLL': 'OCS'
     };
@@ -18,16 +18,16 @@
     function getClientCert(client) {
         if (!client) return null;
         const key = String(client).toUpperCase().trim();
-        // Si existe mapeo explÃ­cito, devolverlo
+        // Si existe mapeo explAcito, devolverlo
         if (CLIENT_DEFAULT_CERT[key]) return CLIENT_DEFAULT_CERT[key];
-        // Por compatibilidad con la lÃ³gica anterior, por defecto devolver GOTS
+        // Por compatibilidad con la lAgica anterior, por defecto devolver GOTS
         return 'GOTS';
     }
 
-    // Helpers para detectar variantes de 'ORG' / 'ORGANICO' y aÃ±adir certificaciÃ³n
+    // Helpers para detectar variantes de 'ORG' / 'ORGANICO' y aAadir certificaciAn
     function isOrganicoText(s) {
         if (!s) return false;
-        return /\b(?:ORGANICO|ORGANIC|ORG)\b/i.test(String(s));
+        return /\b(ORGANICO|ORGANIC|ORG)\b/i.test(String(s));
     }
 
     function addCertToOrganico(text, certShort) {
@@ -35,8 +35,8 @@
         if (!certShort) return text;
         // Si ya contiene (OCS) o (GOTS), no modificar
         if (/\(OCS\)|\(GOTS\)/i.test(text)) return text;
-        // Reemplazar primera apariciÃ³n de ORG/ORGANICO/ORGANIC aÃ±adiendo la certificaciÃ³n
-        return String(text).replace(/\b(ORGANICO|ORGANIC|ORG)\b(?!\s*\(?(?:OCS|GOTS)\)?)/i, `$1 (${certShort})`);
+        // Reemplazar primera apariciAn de ORG/ORGANICO/ORGANIC aAadiendo la certificaciAn
+        return String(text).replace(/\b(ORGANICO|ORGANIC|ORG)\b/i, `$1 (${certShort})`);
     }
 
     // ID Generator for Drag & Drop
@@ -51,7 +51,7 @@
             const worksheet = excelJsWorkbook.getWorksheet(sheetName);
             if(!worksheet) return null;
             
-            // Parsear direcciÃ³n de celda (ej: "A1")
+            // Parsear direcciAn de celda (ej: "A1")
             const cell = worksheet.getCell(cellAddress);
             if(!cell || !cell.fill) return null;
             
@@ -59,7 +59,7 @@
             if(cell.fill.type === 'pattern' || cell.fill.type === 'solid') {
                 const fgColor = cell.fill.fgColor;
                 if(fgColor && fgColor.argb) {
-                    // Formato ARGB - tomar Ãºltimos 6 caracteres para RGB
+                    // Formato ARGB - tomar Altimos 6 caracteres para RGB
                     let argb = String(fgColor.argb);
                     if(argb.length >= 6) {
                         return '#' + argb.slice(-6);
@@ -105,7 +105,7 @@
             GLOBAL_DATA.currentTab = type;
             renderBalanceModule();
         } else if (modulePrefix === 'bal2') {
-            // Sub-tabs para el nuevo mÃ³dulo 'Balance' (mod-balance2)
+            // Sub-tabs para el nuevo mAdulo 'Balance' (mod-balance2)
             document.getElementById('bal2-crudo-view').style.display = 'none';
             document.getElementById('bal2-htr-view').style.display = 'none';
             document.getElementById(`bal2-${type}-view`).style.display = 'block';
@@ -152,7 +152,7 @@
                         file.name.endsWith('.xls');
         
         if (!isExcel) {
-            console.warn('Por favor, selecciona un archivo Excel vÃ¡lido (.xlsx o .xls)');
+            console.warn('Por favor, selecciona un archivo Excel vAlido (.xlsx o .xls)');
             return;
         }
         
@@ -162,7 +162,7 @@
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, {type: 'array', cellFormula: true, cellStyles: true});
                 
-                // TambiÃ©n leer con ExcelJS para obtener estilos
+                // TambiAn leer con ExcelJS para obtener estilos
                 const excelJsWorkbook = new ExcelJS.Workbook();
                 excelJsWorkbook.xlsx.load(e.target.result).then(() => {
                     processData(workbook, excelJsWorkbook);
@@ -183,7 +183,7 @@
         reader.readAsArrayBuffer(file);
     }
 
-    // PREVENIR NAVEGACIÃ“N ACCIDENTAL POR ARRASTRE DE ARCHIVOS A NIVEL GLOBAL
+    // PREVENIR NAVEGACIAN ACCIDENTAL POR ARRASTRE DE ARCHIVOS A NIVEL GLOBAL
     // Esto previene que el navegador intente abrir archivos directamente
     document.addEventListener('dragover', function(e) {
         e.preventDefault();
@@ -227,7 +227,7 @@
         return parseFloat(str) || 0;
     }
 
-    function round0(num) { return num; } // Devolver valor sin modificar para cÃ¡lculos
+    function round0(num) { return num; } // Devolver valor sin modificar para cAlculos
 
     function findHeaderRow(jsonData) {
         for(let r=0; r<Math.min(jsonData.length, 30); r++){
@@ -261,7 +261,7 @@
             nuevoOriginal: [], htrOriginal: [], // Guardar orden original para PCP
             excelTotals: { crudo: null, htr: null, global: null, ne: null },
             filterStatus: { crudoFiltered: false, htrFiltered: false },
-            // Mantener lista de bloques vacÃ­os que el usuario decidiÃ³ conservar
+            // Mantener lista de bloques vacAos que el usuario decidiA conservar
             emptyGroups: { crudo: [], htr: [] },
             currentTab: 'crudo'
         };
@@ -280,12 +280,12 @@
                 const isHtr = upperName.includes("HTR");
                 const idxOrden = anchor.c;
                 const idxKg = idxOrden + 7;
-                const idxNe = anchor.neIdx; // Usar el Ã­ndice encontrado en el header
+                const idxNe = anchor.neIdx; // Usar el Andice encontrado en el header
                 
                 // Seleccionar la columna OBS que tiene datos
                 let idxObs = -1;
                 if(anchor.obsIndices && anchor.obsIndices.length > 0) {
-                    // Si hay mÃºltiples columnas OBS, elegir la que tiene mÃ¡s datos
+                    // Si hay mAltiples columnas OBS, elegir la que tiene mAs datos
                     let maxDataCount = 0;
                     for(let obsCol of anchor.obsIndices) {
                         let dataCount = 0;
@@ -314,11 +314,11 @@
                         continue;
                     }
                     if (celdaOrden.includes("KG TOTAL") || celdaOrden.includes("TOTAL GENERAL") || celdaOrden.includes("SUMA TOTAL")) {
-                        // Buscar Ne en las prÃ³ximas 5 filas
+                        // Buscar Ne en las prAximas 5 filas
                         for(let nextRowIdx = i + 1; nextRowIdx < Math.min(i + 6, jsonData.length); nextRowIdx++) {
                             const nextRow = jsonData[nextRowIdx];
                             
-                            // Buscar "Ne. =" especÃ­ficamente
+                            // Buscar "Ne. =" especAficamente
                             let neEqualColIdx = -1;
                             for(let col = 0; col < nextRow.length; col++) {
                                 const cellStr = nextRow[col] ? String(nextRow[col]).toUpperCase().trim() : "";
@@ -329,7 +329,7 @@
                             }
                             
                             if(neEqualColIdx >= 0) {
-                                // Tomar el valor de la siguiente columna no vacÃ­a
+                                // Tomar el valor de la siguiente columna no vacAa
                                 for(let col = neEqualColIdx + 1; col < nextRow.length; col++) {
                                     const cellVal = nextRow[col];
                                     if(cellVal !== null && cellVal !== undefined && cellVal !== "") {
@@ -366,7 +366,7 @@
                             const cellAddress = XLSX.utils.encode_cell({r: i, c: idxObs});
                             obsBgColor = getCellBackgroundColor(workbook, sheetName, cellAddress, excelJsWorkbook);
                         } catch(e) {
-                            // Ignorar errores de extracciÃ³n de estilos
+                            // Ignorar errores de extracciAn de estilos
                         }
                     }
                     
@@ -376,10 +376,10 @@
                         const cellAddress = XLSX.utils.encode_cell({r: i, c: idxOrden+5});
                         materialBgColor = getCellBackgroundColor(workbook, sheetName, cellAddress, excelJsWorkbook);
                     } catch(e) {
-                        // Ignorar errores de extracciÃ³n de estilos
+                        // Ignorar errores de extracciAn de estilos
                     }
 
-                    // --- NUEVA REGLA: Insertar (OCS) o (GOTS) inmediatamente despuÃ©s de "ORGANICO" ---
+                    // --- NUEVA REGLA: Insertar (OCS) o (GOTS) inmediatamente despuAs de "ORGANICO" ---
                     try {
                         const clienteStr = (row[idxOrden+1] || "").toString().trim();
                         const certShort = getClientCert(clienteStr); // 'OCS' or 'GOTS'
@@ -388,11 +388,11 @@
                     } catch(e) {}
                     // -------------------------------------------------------------------------------
 
-                    // --- ASIGNACIÃ“N DE GRUPO INICIAL ---
+                    // --- ASIGNACIAN DE GRUPO INICIAL ---
                     let cleanRaw = rawHilado.toUpperCase().replace(/^\d+\/\d+\s+/, '').trim();
                     
-                    // Detectar mezcla: si tiene porcentajes de participaciÃ³n (con o sin parÃ©ntesis)
-                    let isMezcla = /\(?\d{1,3}(?:\/\d{1,3})+\s*%/.test(cleanRaw);
+                    // Detectar mezcla: si tiene porcentajes de participaciAn (con o sin parAntesis)
+                    let isMezcla = /\d{1,3}\/\d{1,3}\s*%/.test(cleanRaw);
                     
                     let groupKey = cleanRaw;
                     if(!isMezcla) {
@@ -404,14 +404,14 @@
                             groupKey = "TANGUIS"; // fallback
                         }
                     } else {
-                        // MEZCLA: usar nombre canÃ³nico
+                        // MEZCLA: usar nombre canAnico
                         groupKey = getCanonicalGroupName(cleanRaw);
                     }
 
                     let item = {
                         _id: generateId(),
                         group: groupKey,
-                        // TÃ­tulo (ej: "30/1") extraÃ­do del hilado para mÃ³dulo TÃ­tulo
+                        // TAtulo (ej: "30/1") extraAdo del hilado para mAdulo TAtulo
                         titulo: (rawHilado.match(/^\s*(\d+\/\d+)/) ? rawHilado.match(/^\s*(\d+\/\d+)/)[1] : 'SIN TITULO'),
                         isMezcla: isMezcla,
                         orden: row[idxOrden],
@@ -442,7 +442,7 @@
             }
         });
 
-        // 1. PRIMERO CALCULAMOS EL SEMÃFORO (HIGHLIGHT) EN EL ORDEN ORIGINAL
+        // 1. PRIMERO CALCULAMOS EL SEMAFORO (HIGHLIGHT) EN EL ORDEN ORIGINAL
         GLOBAL_DATA.excelTotals.global = (GLOBAL_DATA.excelTotals.crudo || 0) + (GLOBAL_DATA.excelTotals.htr || 0);
         identifyIncludedRows(GLOBAL_DATA.nuevo, GLOBAL_DATA.excelTotals.crudo);
         identifyIncludedRows(GLOBAL_DATA.htr, GLOBAL_DATA.excelTotals.htr);
@@ -553,11 +553,11 @@
         let html = `<table class="${className}"><thead><tr><th>ORDEN</th><th>CLIENTE</th><th>TEMP</th><th>OP</th><th>HILADO</th><th>COLOR</th><th>KG SOL.</th><th style="width:150px;">OBSERVACIONES</th></tr></thead><tbody>`;
         rows.forEach(r => {
             let rowClass = r.highlight ? 'highlight-row' : '';
-            const obsText = r.obs && r.obs.trim() !== '' ? r.obs : '-';
+            const obsText = (r.obs && r.obs.trim() !== '') ? r.obs : '-';
             const obsBgStyle = r.obsBgColor ? `background-color: ${r.obsBgColor};` : '';
             const obsTextColor = r.obsBgColor ? 'color: #000; font-weight: 600;' : 'color:#475569;';
             const colorText = r.colorText || '-';
-            // Hacer editable el hilado mediante un prompt para facilitar ediciÃ³n rÃ¡pida
+            // Hacer editable el hilado mediante un prompt para facilitar ediciAn rApida
             const safeHilado = (r.hilado || '').toString().replace(/\\/g, "\\\\").replace(/'/g, "\\'");
             html += `<tr class="${rowClass}">
                 <td>${r.orden || '-'}</td>
@@ -577,12 +577,12 @@
         return html;
     }
 
-    // Abrir prompt para editar el hilado de una fila (rÃ¡pido). Propaga cambios a todos los arrays y recalcula.
+    // Abrir prompt para editar el hilado de una fila (rApido). Propaga cambios a todos los arrays y recalcula.
     function promptEditHilado(id) {
         try {
             // Buscar el item en alguno de los arrays
             let item = GLOBAL_DATA.nuevoOriginal.find(x => x._id === id) || GLOBAL_DATA.nuevo.find(x => x._id === id) || GLOBAL_DATA.htrOriginal.find(x => x._id === id) || GLOBAL_DATA.htr.find(x => x._id === id);
-            if(!item) return alert('No se encontrÃ³ la fila.');
+            if(!item) return alert('No se encontrA la fila.');
             const oldVal = item.hilado || '';
             const newVal = prompt('Editar Hilado', oldVal);
             if(newVal === null) return; // Cancel
@@ -631,7 +631,7 @@
         try {
             const rawHilado = (item.hilado || '').toString();
             let cleanRaw = rawHilado.toUpperCase().replace(/^\d+\/\d+\s+/, '').trim();
-            let isMez = /\(?\d{1,3}(?:\/\d{1,3})+\s*%/.test(cleanRaw);
+            let isMez = /\d{1,3}\/\d{1,3}\s*%/.test(cleanRaw);
             item.isMezcla = isMez;
             if(!isMez) {
                 const baseToken = getBaseMaterialToken(rawHilado);
@@ -645,39 +645,39 @@
         } catch(e) { console.error('recalcItemFields', e); }
     }
 
-    // Normalizar tÃ­tulos para agrupamiento en mÃ³dulo TÃ­tulo
+    // Normalizar tAtulos para agrupamiento en mAdulo TAtulo
     function normalizeTitulo(t) {
         if (!t) return 'SIN TITULO';
         const s = String(t).toUpperCase().trim();
-        // Reglas especÃ­ficas solicitadas:
+        // Reglas especAficas solicitadas:
         // 40/1 VI -> agrupar como 36/1
         if (/^40\/1\b.*\bVI\b/i.test(s)) return '36/1';
         // 50/1 IV -> agrupar como 44/1
         if (/^50\/1\b.*\bIV\b/i.test(s)) return '44/1';
-        // Quitar sufijos de calidad numerales raros y devolver bÃ¡sico (ej: '40/1 A' -> '40/1')
+        // Quitar sufijos de calidad numerales raros y devolver bAsico (ej: '40/1 A' -> '40/1')
         const m = s.match(/^(\d+\/\d+)/);
         if (m) return m[1];
         return s;
     }
 
-    // Extraer valor Ne desde un item (aplica mapeos especÃ­ficos y luego extracciÃ³n)
+    // Extraer valor Ne desde un item (aplica mapeos especAficos y luego extracciAn)
     function getNeFromItem(it) {
         try {
             // Priorizar `hilado` porque contiene sufijos (ej. 'VI') que `titulo` pierde.
             const rawSrc = (it && ((it.hilado && it.hilado.toString()) || it.titulo || '')) || '';
             const s = String(rawSrc).toUpperCase().trim();
 
-            // Reglas explÃ­citas del usuario (coberturas con y sin '/1')
+            // Reglas explAcitas del usuario (coberturas con y sin '/1')
             // 40/1 VI  -> 36
-            if (/^\s*40(?:\/1)?\b.*\bVI\b/i.test(s)) return 36;
+            if (/^\s*40(?:\/1)!\b.*\bVI\b/i.test(s)) return 36;
             // 50 IV -> 44
-            if (/^\s*50(?:\/1)?\b.*\bIV\b/i.test(s)) return 44;
+            if (/^\s*50(?:\/1)!\b.*\bIV\b/i.test(s)) return 44;
 
-            // Intentar extraer formato 'NN/NN' -> devolver primer nÃºmero
+            // Intentar extraer formato 'NN/NN' -> devolver primer nAmero
             const m = s.match(/(\d+)\s*\/\s*\d+/);
             if (m) return parseInt(m[1], 10);
 
-            // Si no hay '/', tomar primer nÃºmero de 1 a 3 dÃ­gitos
+            // Si no hay '/', tomar primer nAmero de 1 a 3 dAgitos
             const m2 = s.match(/(\d{1,3})/);
             if (m2) return parseInt(m2[1], 10);
         } catch (e) { console.error('getNeFromItem', e); }
@@ -711,15 +711,15 @@
         const rows = (allRows || []).filter(r => (r.group || '').toString().toUpperCase() === 'OTROS');
         const hasRows = rows.length > 0;
         // Detectar si hay COP ORGANICO LLL entre las filas OTROS (solo crudo)
-        const groupHasCopOrgLll = (!isHtr) && rows.some(r => (getClientCert((r.cliente||'').toString().trim()) === 'OCS') && /COP\s*(?:ORGANICO|ORG|ORGANIC)/i.test(r.hilado || ''));
-        // Calcular nÃºmero de columnas del encabezado para usar en colspan cuando estÃ¡ vacÃ­o
+        const groupHasCopOrgLll = (!isHtr) && rows.some(r => (getClientCert((r.cliente||'').toString().trim()) === 'OCS') && /COP\s*(ORGANICO|ORG|ORGANIC)/i.test(r.hilado || ''));
+        // Calcular nAmero de columnas del encabezado para usar en colspan cuando estA vacAo
         let baseCols = 10; // ORDEN, CLIENTE, TEMP, RSV, OP, HILADO, COLOR, KG SOL., KG REQ., QQ REQ.
         if (groupHasCopOrgLll) baseCols += 2; // columnas adicionales para ORGANICO/TANGUIS
 
         const tableType = isHtr ? 'htr' : 'pure';
         let html = `<div class="table-wrap"><div class="bal-header-row"><span class="bal-title">MATERIAL: OTROS</span>`;
         if (!hasRows) {
-            html += `<button style="margin-left:auto; padding:6px 12px; font-size:11px; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="confirmDeleteGroup('OTROS', '${tableType}')">Eliminar bloque vacÃ­o</button>`;
+            html += `<button style="margin-left:auto; padding:6px 12px; font-size:11px; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="confirmDeleteGroup('OTROS', '${tableType}')">Eliminar bloque vacAo</button>`;
         }
         html += `</div>`;
         html += `<table><thead><tr>
@@ -733,7 +733,7 @@
 
         if (!hasRows) {
             html += `<tr ondragover="allowDrop(event)" ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDropToOtros(event)">
-                        <td colspan="${baseCols}"><div class="otros-drop-hint">Arrastra aquÃ­ filas para asignarlas a OTROS</div></td>
+                        <td colspan="${baseCols}"><div class="otros-drop-hint">Arrastra aquA filas para asignarlas a OTROS</div></td>
                     </tr>`;
         } else {
             rows.forEach(r => {
@@ -836,30 +836,182 @@ function fmt(n) {
         const tables = scope.querySelectorAll('table');
         tables.forEach(table => {
             if (moduleRoot && !moduleRoot.contains(table)) return;
-            if (table.dataset.noFilter === 'true') return;
-            if (table.dataset.filters === 'true') return;
+            const filterRow = table.querySelector('thead .table-filter-row');
+            if (filterRow) filterRow.remove();
+            if (table.dataset.filters) delete table.dataset.filters;
+        });
+    }
+
+    const HEADER_FILTER_STATE = new WeakMap();
+    let headerFiltersBound = false;
+
+    function applyHeaderFilters(root) {
+        const moduleRoot = document.getElementById('mod-balance2');
+        const scope = root || moduleRoot;
+        if (!scope) return;
+        const tables = scope.querySelectorAll('table.data-filter');
+        tables.forEach(table => {
+            if (table.dataset.headerFilters === 'true') return;
             const thead = table.querySelector('thead');
-            if (!thead) return;
-            const headerRow = thead.querySelector('tr');
+            const headerRow = thead ? thead.querySelector('tr') : null;
             if (!headerRow) return;
-
-            const filterRow = document.createElement('tr');
-            filterRow.className = 'table-filter-row';
-            const headerCells = headerRow.querySelectorAll('th');
-            headerCells.forEach((_, idx) => {
-                const th = document.createElement('th');
-                const input = document.createElement('input');
-                input.type = 'text';
-                input.placeholder = 'Filtrar';
-                input.className = 'table-filter-input';
-                input.dataset.colIndex = String(idx);
-                input.addEventListener('input', () => filterTableRows(table));
-                th.appendChild(input);
-                filterRow.appendChild(th);
+            const ths = headerRow.querySelectorAll('th');
+            ths.forEach((th, idx) => {
+                if (th.querySelector('.th-filter-btn')) return;
+                th.dataset.colIndex = String(idx);
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'th-filter-btn';
+                btn.innerHTML = '&#9662;';
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleHeaderFilterMenu(table, th, idx);
+                });
+                th.appendChild(btn);
+                const menu = document.createElement('div');
+                menu.className = 'filter-menu';
+                menu.dataset.colIndex = String(idx);
+                menu.style.display = 'none';
+                menu.addEventListener('click', (e) => e.stopPropagation());
+                th.appendChild(menu);
             });
+            table.dataset.headerFilters = 'true';
+        });
 
-            thead.appendChild(filterRow);
-            table.dataset.filters = 'true';
+        if (!headerFiltersBound) {
+            document.addEventListener('click', closeHeaderFilterMenus);
+            headerFiltersBound = true;
+        }
+    }
+
+    function toggleHeaderFilterMenu(table, th, idx) {
+        const menu = th.querySelector('.filter-menu');
+        if (!menu) return;
+        const isOpen = menu.style.display === 'block';
+        closeHeaderFilterMenus();
+        if (isOpen) {
+            menu.style.display = 'none';
+            return;
+        }
+        buildHeaderFilterMenu(table, idx, menu, th);
+        menu.style.display = 'block';
+    }
+
+    function closeHeaderFilterMenus() {
+        const menus = document.querySelectorAll('#mod-balance2 .filter-menu');
+        menus.forEach(m => { m.style.display = 'none'; });
+    }
+
+    function getHeaderFilterState(table) {
+        let state = HEADER_FILTER_STATE.get(table);
+        if (!state) {
+            state = {};
+            HEADER_FILTER_STATE.set(table, state);
+        }
+        return state;
+    }
+
+    function collectColumnValues(table, idx) {
+        const values = [];
+        const seen = new Set();
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            const cell = row.cells[idx];
+            if (!cell) return;
+            const text = (cell.textContent || '').trim();
+            if (seen.has(text)) return;
+            seen.add(text);
+            values.push(text);
+        });
+        return values;
+    }
+
+    function buildHeaderFilterMenu(table, idx, menu, th) {
+        menu.innerHTML = '';
+        const values = collectColumnValues(table, idx);
+        const state = getHeaderFilterState(table);
+        let selected = state[idx] ? new Set(state[idx]) : new Set(values);
+        selected = new Set(Array.from(selected).filter(v => values.includes(v)));
+        if (selected.size === 0 && values.length) selected = new Set(values);
+
+        const title = document.createElement('div');
+        title.className = 'filter-title';
+        title.textContent = 'Filtrar';
+        menu.appendChild(title);
+
+        const allLabel = document.createElement('label');
+        const allCb = document.createElement('input');
+        allCb.type = 'checkbox';
+        allCb.checked = selected.size === values.length;
+        allCb.addEventListener('change', () => {
+            if (allCb.checked) {
+                selected = new Set(values);
+            } else {
+                selected = new Set();
+            }
+            state[idx] = Array.from(selected);
+            syncHeaderFilterChecks(menu, selected);
+            applyHeaderFiltersToTable(table);
+            updateHeaderFilterIndicator(th, selected, values);
+        });
+        allLabel.appendChild(allCb);
+        allLabel.appendChild(document.createTextNode('Todos'));
+        menu.appendChild(allLabel);
+        const hr = document.createElement('hr');
+        menu.appendChild(hr);
+
+        values.forEach(val => {
+            const label = document.createElement('label');
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = val;
+            cb.checked = selected.has(val);
+            cb.addEventListener('change', () => {
+                if (cb.checked) selected.add(val);
+                else selected.delete(val);
+                state[idx] = Array.from(selected);
+                allCb.checked = selected.size === values.length;
+                applyHeaderFiltersToTable(table);
+                updateHeaderFilterIndicator(th, selected, values);
+            });
+            const display = val === '' ? '-' : val;
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(display));
+            menu.appendChild(label);
+        });
+
+        state[idx] = Array.from(selected);
+        updateHeaderFilterIndicator(th, selected, values);
+    }
+
+    function syncHeaderFilterChecks(menu, selected) {
+        const checks = menu.querySelectorAll('label input[type="checkbox"]');
+        checks.forEach((cb, i) => {
+            if (i === 0) return;
+            cb.checked = selected.has(cb.value);
+        });
+    }
+
+    function updateHeaderFilterIndicator(th, selected, values) {
+        if (!th) return;
+        if (selected.size === 0 || selected.size < values.length) th.classList.add('filter-active');
+        else th.classList.remove('filter-active');
+    }
+
+    function applyHeaderFiltersToTable(table) {
+        const state = getHeaderFilterState(table);
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            let show = true;
+            for (const key in state) {
+                const idx = Number(key);
+                const allowed = new Set(state[key] || []);
+                if (allowed.size === 0) { show = false; break; }
+                const cell = row.cells[idx];
+                const text = cell ? (cell.textContent || '').trim() : '';
+                if (!allowed.has(text)) { show = false; break; }
+            }
+            row.style.display = show ? '' : 'none';
         });
     }
 
