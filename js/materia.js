@@ -217,7 +217,7 @@ function renderBalanceModule() {
             const factor = (idx === 0) ? 0.65 : 0.85;
             const kgSol = round0(kgSolicitado * c.pct);
             const kg = round0((kgSolicitado * c.pct) / factor);
-            const isAlgodon = isAlgodonText(c.name);
+            const isAlgodon = isAlgodonMixComponent(c.name);
             const qq = isAlgodon ? round0(kg / 46) : null;
             finalComponents.push({ name: c.name, kg: kg, qq: qq, kgSol: kgSol });
         });
@@ -322,7 +322,7 @@ function renderBalanceModule() {
             const factor = (idx === 0) ? 0.60 : 0.85;
             const kgSol = round0(kgSolicitado * c.pct);
             const kg = round0((kgSolicitado * c.pct) / factor);
-            const isAlgodon = isAlgodonText(c.name);
+            const isAlgodon = isAlgodonMixComponent(c.name);
             const qq = isAlgodon ? round0(kg / 46) : null;
             finalComponents.push({ name: c.name, kg: kg, qq: qq, kgSol: kgSol });
         });
@@ -339,6 +339,15 @@ function renderBalanceModule() {
             let name = String(c.name).toUpperCase().trim();
             return name || "COMP";
         });
+    }
+
+    function isAlgodonMixComponent(value) {
+        if (!value) return false;
+        const norm = String(value)
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toUpperCase();
+        return /\b(PIMA|UPLAND|TANGUIS|ORGANICO|ORGANIC|ORG)\b/.test(norm);
     }
 
     // Extract base material token detectando material base + modificador
@@ -407,7 +416,7 @@ function renderBalanceModule() {
             // Detectar si el grupo contiene al menos un COP ORGANICO del cliente LLL (solo en crudo)
             const groupHasCopOrgLll = (!isHtr) && (g.items || []).some(r => {
                 const cli = (r.cliente || '').toString().trim();
-                return getClientCert(cli) === 'OCS' && /COP\s*ORGANICO/i.test(r.hilado || '');
+                return getClientCert(cli) === 'OCS' && /COP\s*(?:ORGANICO|ORG|ORGANIC)/i.test(r.hilado || '');
             });
 
             if (tableType === 'mix') {
@@ -416,7 +425,7 @@ function renderBalanceModule() {
                     headerNames = getMixHeaders(firstYarn);
                     mixTotalsKG = new Array(headerNames.length).fill(0);
                     mixTotalsQQ = new Array(headerNames.length).fill(0);
-                    mixTotalsQQApplicable = headerNames.map(h => isAlgodonText(h));
+                    mixTotalsQQApplicable = headerNames.map(h => isAlgodonMixComponent(h));
                 }
             }
 
@@ -437,9 +446,12 @@ function renderBalanceModule() {
                     <th class="th-base">HILADO</th><th class="th-base">COLOR</th><th class="th-base">NE</th><th class="th-base">KG SOL.</th>`;
                 headerNames.forEach((hName, idx) => {
                     let thClass = `th-comp-${idx % 3}`;
-                    html += `<th class="${thClass}">${hName}</th><th class="${thClass}">${hName} QQ</th>`;
+                    html += `<th class="${thClass}">${hName}</th>`;
+                    if (mixTotalsQQApplicable[idx]) {
+                        html += `<th class="${thClass}">${hName} QQ</th>`;
+                    }
                 });
-                colCount = 9 + (headerNames.length * 2);
+                colCount = 9 + headerNames.length + mixTotalsQQApplicable.filter(Boolean).length;
                 html += `</tr></thead><tbody>`;
             } else {
                 // Columns: ORDEN, CLIENTE, TEMP, RSV, OP, HILADO, COLOR, NE, KG SOL., KG REQ., QQ REQ., (+ optional 2 for ORGANICO/TANGUIS)
@@ -479,12 +491,14 @@ function renderBalanceModule() {
                         <td style="font-weight:600;">${neVal ? fmt(Math.round(neVal)) : '-'}</td>
                         <td style="font-weight:bold;">${fmtDecimal(kgSol)}</td>`;
                     comps.forEach((c, idx) => {
-                        html += `<td>${fmtDecimal(c.kg)}</td><td>${fmtDecimal(c.qq)}</td>`;
+                        html += `<td>${fmtDecimal(c.kg)}</td>`;
+                        if (mixTotalsQQApplicable[idx]) {
+                            html += `<td>${fmtDecimal(c.qq)}</td>`;
+                        }
                         if (idx < mixTotalsKG.length) {
                             mixTotalsKG[idx] += c.kg;
                             if (c.qq !== null && c.qq !== undefined) {
                                 mixTotalsQQ[idx] += c.qq;
-                                mixTotalsQQApplicable[idx] = true;
                             }
                         }
                     });
@@ -498,7 +512,7 @@ function renderBalanceModule() {
 
                     // Determinar si ESTA fila es COP ORGANICO de LLL en crudo
                     const cli = (r.cliente || '').toString().trim();
-                    const isCopOrgLll = (!isHtr) && (getClientCert(cli) === 'OCS') && /COP\s*ORGANICO/i.test(r.hilado || '');
+                    const isCopOrgLll = (!isHtr) && (getClientCert(cli) === 'OCS') && /COP\s*(?:ORGANICO|ORG|ORGANIC)/i.test(r.hilado || '');
                     let qqOrg = '';
                     let qqTan = '';
                     if (isCopOrgLll) {
@@ -528,8 +542,10 @@ function renderBalanceModule() {
                      // Para mix: poner TOTAL abarcando hasta COLOR, luego NE, luego KG SOL
                      html += `<tr class="bal-subtotal"><td colspan="7" style="text-align:right;">TOTAL ${g.name}:</td><td>${groupNeDisplay}</td><td>${fmt(totalKgSol)}</td>`;
                      mixTotalsKG.forEach((tk, i) => {
-                         const qqDisplay = mixTotalsQQApplicable[i] ? fmt(mixTotalsQQ[i]) : '-';
-                         html += `<td>${fmt(tk)}</td><td>${qqDisplay}</td>`;
+                         html += `<td>${fmt(tk)}</td>`;
+                         if (mixTotalsQQApplicable[i]) {
+                             html += `<td>${fmt(mixTotalsQQ[i])}</td>`;
+                         }
                      });
                      html += `</tr>`;
                   } else {
