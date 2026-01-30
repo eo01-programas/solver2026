@@ -350,13 +350,40 @@ function renderBalanceModule() {
         return /\b(PIMA|UPLAND|TANGUIS|ORGANICO|ORGANIC|ORG)\b/.test(norm);
     }
 
+    // Normalizar texto del hilado: limpiar sinónimos y descripciones innecesarias
+    // "14 CRUDO COP UPLAND PARA MAS BLANCO" → "14 CRUDO COP PIMA"
+    function normalizeHilado(s) {
+        if (!s) return '';
+        let text = String(s);
+        
+        // Reemplazos de sinónimos
+        text = text.replace(/\bUPLAND\b/gi, 'PIMA');
+        text = text.replace(/\bTENCEL\b/gi, 'LYOCELL');
+        text = text.replace(/\bNC\b/gi, ''); // Remover NC (no relevante)
+        text = text.replace(/\bSTD\b/gi, ''); // Remover STD (standard, no relevante)
+        
+        // Remover descripciones innecesarias
+        text = text.replace(/\bPARA MAS BLANCO\b/gi, '');
+        text = text.replace(/\bEXTRA BLANCO\b/gi, '');
+        text = text.replace(/\bMAS BLANCO\b/gi, '');
+        text = text.replace(/\bALGODON\b/gi, ''); // Remover "ALGODÓN" si aparece solo
+        
+        // Limpiar espacios múltiples
+        text = text.replace(/\s+/g, ' ').trim();
+        
+        return text;
+    }
+
     // Extract base material token detectando material base + modificador
     // COP ORGANICO = TANGUIS ORGANICO (por defecto)
     // COP PIMA ORGANICO = PIMA ORGANICO (diferente tipo de algodAn)
     // NO SE PUEDEN MEZCLAR
     function getBaseMaterialToken(s) {
         if (!s) return '';
-        const u = String(s).toUpperCase();
+        
+        // Normalizar primero
+        let normalized = normalizeHilado(s);
+        const u = normalized.toUpperCase();
         
         // Detectar material base primero
         let baseMaterial = '';
