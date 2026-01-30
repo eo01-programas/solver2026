@@ -41,12 +41,12 @@
         // Helper: detectar tAtulos especiales a partir del campo `hilado` y devolver clave de grupo.
         function getTituloGroupKey(r) {
             const hil = (r.hilado || '').toString().toUpperCase();
-            // 40/1 VI (o "40/1 VI COP ...") -> grupo '40/1 VI'
-            let m = hil.match(/\b(40\/1)\b[^\n\r]*\bVI\b/i);
-            if (m) return `${m[1]} VI`;
-            // 50 IV (o "50/1 IV ...") -> grupo '50/1 IV' o '50 IV' segAn captura
-            m = hil.match(/\b(50\/1)\b[^\n\r]*\bIV\b/i);
-            if (m) return `${m[1]} IV`;
+            // 40/1 VI (o "40/1 VI COP ...") -> agrupar como '36/1'
+            let m = hil.match(/\b40(?:\/1)?\b[^\n\r]*\bVI\b/i);
+            if (m) return '36/1';
+            // 50 IV (o "50/1 IV ...") -> agrupar como '44/1'
+            m = hil.match(/\b50(?:\/1)?\b[^\n\r]*\bIV\b/i);
+            if (m) return '44/1';
             // Por defecto usar la normalizaciAn existente (basada en `titulo`)
             const rawTitulo = (r.titulo || r.hilado || 'SIN TITULO');
             return normalizeTitulo(rawTitulo);
