@@ -18,7 +18,7 @@
         .app-version { color: #94a3b8; font-size: 0.75rem; font-weight: 700; margin-right: 10px; letter-spacing: 0.5px; }
 
         /* CONTENIDO */
-        .main-content { flex: 1; padding: 24px 28px 32px; overflow-y: auto; }
+        .main-content { flex: 1; padding: 12px 14px 16px; overflow-y: auto; }
         .module-view { display: none; animation: fadeIn 0.3s ease-in-out; }
         .module-view.active { display: flex; flex-direction: column; gap: 18px; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
@@ -104,29 +104,36 @@
         .ct-material, .ct-articulo { text-align: left; white-space: normal; }
         .ct-ne, .ct-factor { text-align: center; width: 70px; }
         .solver-table th { white-space: normal; word-break: break-word; line-height: 1.1; }
+        .solver-table td.solver-material { text-align: justify; white-space: normal; }
+        .solver-table { min-width: 1200px; }
+        .solver-table th, .solver-table td { padding: 8px 6px; font-size: 0.7rem; line-height: 1.2; }
+        .solver-table td:nth-child(2) { text-align: center; font-weight: 700; color: #1e293b; }
 
         /* Iconos tipo filtro en encabezados Balance */
 
         /* TABLAS - ESTETICA */
-        .table-wrap, .table-wrapper { overflow: auto; max-height: 78vh; background: white; border-radius: 0.6rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); margin-bottom: 22px; border: 1px solid #cbd5e1; position: relative; }
-        table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 1000px; }
+        .table-wrap, .table-wrapper { overflow-x: auto; overflow-y: visible; max-height: none; background: white; border-radius: 0.6rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); margin-bottom: 12px; border: 1px solid #cbd5e1; position: relative; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: auto; }
         thead { position: static; }
         
         /* HEADER ESTILIZADO */
         th { 
             color: white; 
-            padding: 12px 8px; 
+            padding: 8px 6px; 
             text-align: center; 
-            font-size: 0.75rem; 
+            font-size: 0.7rem; 
             font-weight: 700;
             text-transform: uppercase; 
-            white-space: nowrap;
+            white-space: normal;
+            word-break: break-word;
             border-right: 1px solid rgba(255,255,255,0.1);
             position: sticky; 
             top: 0; 
             z-index: 10; 
             vertical-align: middle;
-            height: 40px;
+            height: auto;
+            line-height: 1.2;
+            max-width: 100px;
         }
         th.th-base { background: #334155; }
         th.th-comp-0 { background: #0369a1; }
@@ -241,3 +248,36 @@
         .modal-item { padding: 12px; margin: 8px 0; background: #f1f5f9; border-left: 4px solid #3b82f6; border-radius: 4px; font-size: 13px; }
         .modal-item-label { font-weight: 600; color: #334155; }
         .modal-item-value { color: #64748b; margin-top: 5px; }
+
+        /* PRODUCTION TABLE STYLES */
+        .production-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: auto; }
+        .production-table th { 
+            color: white; 
+            padding: 8px 6px; 
+            text-align: center; 
+            font-size: 0.65rem; 
+            font-weight: 700;
+            text-transform: uppercase; 
+            white-space: normal;
+            word-break: break-word;
+            border-right: 1px solid rgba(255,255,255,0.1);
+            position: sticky; 
+            top: 0; 
+            z-index: 10; 
+            vertical-align: middle;
+            background: #334155;
+            height: auto;
+            line-height: 1.1;
+        }
+        .production-table td { 
+            border-bottom: 1px solid #f1f5f9; 
+            padding: 4px 6px; 
+            text-align: center; 
+            color: #334155; 
+            border-right: 1px solid #f1f5f9; 
+            font-size: 0.65rem; 
+            white-space: nowrap; 
+        }
+        .production-table tbody tr:nth-child(odd) { background: #f8fafc; }
+        .production-table tbody tr:hover td { background-color: #e0f2fe; }
+
