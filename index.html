@@ -23,7 +23,7 @@
             </div>
         </div>
         <div class="file-input-wrapper">
-            <span class="app-version">V06</span>
+            <span class="app-version">V07</span>
             <input type="file" id="fileUpload" accept=".xlsx, .xls" />
         </div>
     </div>
@@ -49,8 +49,8 @@
         <div id="mod-balance" class="module-view">
             
             <div class="sub-tabs">
-                <button class="sub-tab-btn t-crudo active" onclick="switchSubTab('bal', 'crudo')">AGRUPADO CRUDO / MEZCLA</button>
-                <button class="sub-tab-btn t-htr" onclick="switchSubTab('bal', 'htr')">AGRUPADO HTR</button>
+                <button class="sub-tab-btn t-crudo active" onclick="switchSubTab('bal', 'crudo')">AGRUPADO CRUDO / MEZCLA / HTR</button>
+                <button class="sub-tab-btn t-summary" onclick="switchSubTab('bal', 'summary')">RESUMEN TOTALES</button>
             </div>
 
             <div id="bal-crudo-view" class="bal-tab-content">
@@ -58,7 +58,7 @@
                 <div class="nested-nav">
                     <button class="nested-btn active" onclick="switchInnerTab('pure')">CRUDOS</button>
                     <button class="nested-btn" onclick="switchInnerTab('mix')">MEZCLAS</button>
-                    <button class="nested-btn" onclick="switchInnerTab('summary')">RESUMEN TOTALES</button>
+                    <button class="nested-btn" onclick="switchInnerTab('htr')">HTR</button>
                 </div>
 
                 <div id="inner-pure-view" class="nested-content active">
@@ -67,16 +67,18 @@
                 <div id="inner-mix-view" class="nested-content">
                     <div id="bal-table-mix"></div>
                 </div>
-                <div id="inner-summary-view" class="nested-content">
-                    <div id="bal-summary-area"></div>
+                <div id="inner-htr-view" class="nested-content">
+                    <div id="bal-table-htr"></div>
+                    <div id="bal-htr-summary-area"></div>
                 </div>
 
             </div>
 
-            <div id="bal-htr-view" class="bal-tab-content" style="display:none;">
-                <div id="bal-table-htr"></div>
-                <div id="bal-htr-summary-area"></div>
+            <div id="bal-summary-view" class="bal-tab-content" style="display:none;">
+                <div id="bal-summary-area"></div>
             </div>
+
+            
 
             <div class="balance-footer">
                 <h4 style="margin:0 0 20px 0; border-bottom:1px solid #475569; padding-bottom:15px; letter-spacing:1px; font-size:0.9rem;">
