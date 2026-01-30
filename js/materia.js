@@ -17,7 +17,7 @@ function renderBalanceModule() {
         }
 
         const groupedCrudo = getGroupsFromData(activeCrudo);
-        // Insertar placeholders de bloques vacAos (crudo) si el usuario los preservA
+        // Insertar placeholders de bloques vacios (crudo) si el usuario los preservo
         if (GLOBAL_DATA.emptyGroups && Array.isArray(GLOBAL_DATA.emptyGroups.crudo)) {
             GLOBAL_DATA.emptyGroups.crudo.forEach(p => {
                 if (!groupedCrudo.some(g => (g.name || '').toString() === (p.name || ''))) {
@@ -34,7 +34,7 @@ function renderBalanceModule() {
         document.getElementById('bal-table-mix').innerHTML = generateBalanceGroupTable(mixGroups, 'mix', false) + renderOtrosBlock(false, activeCrudo.filter(r => r.isMezcla), false, true);
 
         const groupedHtr = getGroupsFromData(activeHtr);
-        // Insertar placeholders de bloques vacAos (htr) si existen
+        // Insertar placeholders de bloques vacios (htr) si existen
         if (GLOBAL_DATA.emptyGroups && Array.isArray(GLOBAL_DATA.emptyGroups.htr)) {
             GLOBAL_DATA.emptyGroups.htr.forEach(p => {
                 if (!groupedHtr.some(g => (g.name || '').toString() === (p.name || ''))) {
@@ -196,6 +196,34 @@ function renderBalanceModule() {
         return (Math.round(value * 1000) / 10).toString();
     }
 
+    const GROUP_MERMA_KEY = '__GROUP_MERMA__';
+
+    function getGroupMermaOverride(groupName) {
+        if (!groupName) return null;
+        const override = getMixOverride(groupName, GROUP_MERMA_KEY);
+        if (override && typeof override.merma === 'number') return override.merma;
+        return null;
+    }
+
+    function setGroupMermaOverride(groupName, value) {
+        if (!groupName) return;
+        setMixOverride(groupName, GROUP_MERMA_KEY, 'merma', value);
+    }
+
+    function getGroupMermaValue(isHtr, groupName) {
+        const defaultMerma = isHtr ? 0.40 : 0.35;
+        let merma = getGroupMermaOverride(groupName);
+        if (typeof merma !== 'number') merma = defaultMerma;
+        merma = clampPct(merma, 0.95);
+        if (merma === null) merma = 0;
+        return merma;
+    }
+
+    function getGroupFactor(isHtr, groupName) {
+        const merma = getGroupMermaValue(isHtr, groupName);
+        return Math.max(0.01, 1 - merma);
+    }
+
     function getDefaultMerma(isHtr, idx) {
         if (idx === 0) return 0.40;
         return 0.15;
@@ -215,6 +243,19 @@ function renderBalanceModule() {
         } catch(e) { console.error('handleMixConfigInput', e); }
     }
 
+    function handleGroupMermaInput(encodedGroup, isHtr, rawValue) {
+        try {
+            const groupName = atob(encodedGroup);
+            const cleaned = String(rawValue || '').replace(',', '.');
+            const num = parseFloat(cleaned);
+            if (isNaN(num)) return;
+            const pctVal = clampPct(num / 100, 0.95);
+            if (pctVal === null) return;
+            setGroupMermaOverride(groupName, pctVal);
+            renderBalanceModule();
+        } catch(e) { console.error('handleGroupMermaInput', e); }
+    }
+
     function parseMixComposition(hiladoStr, kgSolicitado, options) {
         const opts = options || {};
         const groupNameOverride = opts.groupName;
@@ -232,16 +273,25 @@ function renderBalanceModule() {
             // No hay porcentajes explAcitos: determinar si el hilado es COP/ORGANICO
             let cleanName = hiladoStr.toUpperCase().replace(/^\d+\/\d+\s+/, "").trim();
             const isPriority = /\bCOP\b/i.test(cleanName) || /(?:ORGANICO|ORG|ORGANIC)/i.test(cleanName);
-                const factor = isPriority ? 0.65 : 0.85;
-            let k = round0(kgSolicitado / factor);
-            const isAlgodon = isAlgodonText(cleanName || "CRUDO");
-            return [{ name: cleanName || "CRUDO", kg: k, qq: isAlgodon ? round0(k / 46) : null, kgSol: round0(kgSolicitado) }];
+            const baseFactor = isPriority ? 0.65 : 0.85;
+            const compName = cleanName || "CRUDO";
+            const groupKey = groupNameOverride || getCanonicalGroupName(cleanName.toUpperCase());
+            const override = getMixOverride(groupKey, compName);
+            let merma = 1 - baseFactor;
+            if (override && typeof override.merma === 'number') merma = override.merma;
+            merma = clampPct(merma, 0.95);
+            if (merma === null) merma = 0;
+            const factor = Math.max(0.01, 1 - merma);
+            const kgSol = round0(kgSolicitado);
+            let k = round0(kgSol / factor);
+            const isAlgodon = isAlgodonText(compName || "CRUDO");
+            return [{ name: compName, kg: k, qq: isAlgodon ? round0(k / 46) : null, kgSol: kgSol, merma: merma }];
         }
 
         // Extraer porcentajes y normalizar a decimales (ej: "40/30/30" -> [0.40, 0.30, 0.30])
         const pcts = pctStr.split('/').map(n => parseFloat(n) / 100);
 
-        // Remover el bloque de porcentajes y el tAtulo inicial (ej: "40/1")
+        // Remover el bloque de porcentajes y el titulo inicial (ej: "40/1")
         let cleanName = hiladoStr.replace(/\(\d{1,3}(?:\/\d{1,3})+\s*%\)/g, "").trim();
         cleanName = cleanName.replace(/^\d+\/\d+\s+/, "").trim();
 
@@ -353,10 +403,19 @@ function renderBalanceModule() {
         if (!pctStr) {
             let cleanName = hiladoStr.toUpperCase().replace(/^\d+\/\d+\s+/, "").trim();
             const isPriority = /\bCOP\b/i.test(cleanName) || /(?:ORGANICO|ORG|ORGANIC)/i.test(cleanName);
-                const factor = isPriority ? 0.60 : 0.85;
-            let k = round0(kgSolicitado / factor);
-            const isAlgodon = isAlgodonText(cleanName || "CRUDO");
-            return [{ name: cleanName || "CRUDO", kg: k, qq: isAlgodon ? round0(k / 46) : null, kgSol: round0(kgSolicitado) }];
+            const baseFactor = isPriority ? 0.60 : 0.85;
+            const compName = cleanName || "CRUDO";
+            const groupKey = groupNameOverride || getCanonicalGroupName(cleanName.toUpperCase());
+            const override = getMixOverride(groupKey, compName);
+            let merma = 1 - baseFactor;
+            if (override && typeof override.merma === 'number') merma = override.merma;
+            merma = clampPct(merma, 0.95);
+            if (merma === null) merma = 0;
+            const factor = Math.max(0.01, 1 - merma);
+            const kgSol = round0(kgSolicitado);
+            let k = round0(kgSol / factor);
+            const isAlgodon = isAlgodonText(compName || "CRUDO");
+            return [{ name: compName, kg: k, qq: isAlgodon ? round0(k / 46) : null, kgSol: kgSol, merma: merma }];
         }
 
         const pcts = pctStr.split('/').map(n => parseFloat(n) / 100);
@@ -461,7 +520,7 @@ function renderBalanceModule() {
         const comps = isHtr ? parseMixCompositionHtr(sampleStr, 1000, { groupName: groupName }) : parseMixComposition(sampleStr, 1000, { groupName: groupName });
 
         // Encabezados: usar directamente el nombre del componente ya procesado por parseMixComposition
-        // No aplicar limpiezas adicionales porque ya estA limpio
+        // No aplicar limpiezas adicionales porque ya esta limpio
         return comps.map(c => {
             let name = String(c.name).toUpperCase().trim();
             return { name: name || "COMP", pct: c.pct, merma: c.merma };
@@ -574,8 +633,8 @@ function renderBalanceModule() {
             }));
             const useMixLayout = (tableType === 'mix') || (tableType === 'htr' && groupHasMix);
 
-            // Detectar si el grupo contiene al menos un COP ORGANICO del cliente LLL (solo en crudo)
-            const groupHasCopOrgLll = (!isHtr) && (g.items || []).some(r => {
+            // Detectar si el grupo contiene al menos un COP ORGANICO del cliente LLL
+            const groupHasCopOrgLll = (g.items || []).some(r => {
                 const cli = (r.cliente || '').toString().trim();
                 return getClientCert(cli) === 'OCS' && /COP\s*(?:ORGANICO|ORG|ORGANIC)/i.test(r.hilado || '');
             });
@@ -592,11 +651,20 @@ function renderBalanceModule() {
             }
 
             const safeGroupName = (g.name || '').toString().replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+            const headerActions = [];
+            if (!useMixLayout) {
+                const groupEnc = btoa(g.name || '');
+                const mermaVal = formatPctInput(getGroupMermaValue(isHtr, g.name));
+                headerActions.push(`<div class="bal-header-merma"><span class="mix-tag">M%</span><input class="mix-input" type="number" step="0.1" min="0" max="95" value="${mermaVal}" onchange="handleGroupMermaInput('${groupEnc}', ${isHtr ? 'true' : 'false'}, this.value)"></div>`);
+            }
             html += `<div class="table-wrap"><div class="bal-header-row"><span class="bal-title">MATERIAL: ${g.name}</span>`;
 
-            // Si el grupo estA vacAo, mostrar botAn para eliminar
+            // Si el grupo esta vacio, mostrar boton para eliminar
             if (g.items.length === 0) {
-                html += `<button style="margin-left:auto; padding:6px 12px; font-size:11px; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="confirmDeleteGroup('${safeGroupName}', '${tableType}')">Eliminar bloque vacAo</button>`;
+                headerActions.push(`<button style="padding:6px 12px; font-size:11px; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="confirmDeleteGroup('${safeGroupName}', '${tableType}')">Eliminar bloque vacio</button>`);
+            }
+            if (headerActions.length) {
+                html += `<div class="bal-header-actions">${headerActions.join('')}</div>`;
             }
             html += `</div>`;
             
@@ -647,9 +715,9 @@ function renderBalanceModule() {
                 html += `</tr></thead><tbody>`;
             }
 
-            // Si estA vacAo, mostrar mensaje
+            // Si esta vacio, mostrar mensaje y permitir drop
             if (g.items.length === 0) {
-                html += `<tr><td colspan="${colCount || 10}" style="text-align:center; padding:30px; color:#999;"><em>Este bloque estA vacAo</em></td></tr>`;
+                html += `<tr ondragover="allowDrop(event)" ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDropToGroup(event, '${safeGroupName}', ${g.isMezcla ? 'true' : 'false'}, ${isHtr ? 'true' : 'false'})"><td colspan="${colCount || 10}" style="text-align:center; padding:30px; color:#999;"><em>Este bloque esta vacio - Arrastra un hilado aqui</em></td></tr>`;
             }
 
             // Totales especiales para COP ORGANICO LLL
@@ -660,12 +728,14 @@ function renderBalanceModule() {
                 const kgSol = round0(r.kg);
                 totalKgSol += kgSol;
                 const colorText = r.colorText || '-';
+                // Atributos de drag & drop para cada fila
+                const dragAttrs = `draggable="true" ondragstart="handleDragStart(event, '${r._id}')" ondrop="handleDrop(event, '${r._id}')" ondragover="allowDrop(event)"`;
 
                 if (useMixLayout) {
                     const comps = isHtr ? parseMixCompositionHtr(r.hilado || "", kgSol, { groupName: (r.group || g.name) }) : parseMixComposition(r.hilado || "", kgSol, { groupName: (r.group || g.name) });
                     const neVal = getNeFromItem(r);
                     const moveBtn = `<button class="row-move-btn" title="Mover hilado" onclick="openMoveRowModal('${r._id}', ${isHtr ? 'true' : 'false'})">&#x21C4;</button>`;
-                    html += `<tr>
+                    html += `<tr ${dragAttrs}>
                         <td>${r.orden}</td><td>${r.cliente}</td><td>${r.temporada}</td><td>${r.rsv||''}</td><td>${r.op}</td><td class="move-cell">${moveBtn}</td>
                         <td class="hilado-cell" style="font-size:11px;">${r.hilado}</td><td style="font-size:10px;">${colorText}</td>
                         <td style="font-weight:600;">${neVal ? fmt(Math.round(neVal)) : '-'}</td>
@@ -684,15 +754,15 @@ function renderBalanceModule() {
                     });
                     html += `</tr>`;
                 } else {
-                    const factor = isHtr ? 0.60 : 0.65;
+                    const factor = getGroupFactor(isHtr, r.group || g.name);
                     const kgReq = round0(kgSol / factor);
                     const isAlgodonRow = isAlgodonText((r.hilado || r.group || ''));
                     const qqReq = isAlgodonRow ? round0(kgReq / 46) : null;
                     if (isAlgodonRow) { totalQQReq += qqReq; totalQQHas = true; }
 
-                    // Determinar si ESTA fila es COP ORGANICO de LLL en crudo
+                    // Determinar si esta fila es COP ORGANICO de LLL
                     const cli = (r.cliente || '').toString().trim();
-                    const isCopOrgLll = (!isHtr) && (getClientCert(cli) === 'OCS') && /COP\s*(?:ORGANICO|ORG|ORGANIC)/i.test(r.hilado || '');
+                    const isCopOrgLll = (getClientCert(cli) === 'OCS') && /COP\s*(?:ORGANICO|ORG|ORGANIC)/i.test(r.hilado || '');
                     let qqOrg = '';
                     let qqTan = '';
                     if (isCopOrgLll) {
@@ -704,7 +774,7 @@ function renderBalanceModule() {
 
                     const neVal = getNeFromItem(r);
                     const moveBtn = `<button class="row-move-btn" title="Mover hilado" onclick="openMoveRowModal('${r._id}', ${isHtr ? 'true' : 'false'})">&#x21C4;</button>`;
-                    html += `<tr>
+                    html += `<tr ${dragAttrs}>
                         <td>${r.orden}</td><td>${r.cliente}</td><td>${r.temporada}</td><td>${r.rsv || ''}</td><td>${r.op}</td><td class="move-cell">${moveBtn}</td>
                         <td class="hilado-cell">${r.hilado}</td><td style="font-size:10px;">${colorText}</td>
                         <td style="font-weight:600;">${neVal ? fmt(Math.round(neVal)) : '-'}</td>
@@ -729,8 +799,8 @@ function renderBalanceModule() {
                          }
                      });
                      html += `</tr>`;
-                  } else {
-                      const factor = isHtr ? 0.60 : 0.65;
+                 } else {
+                      const factor = getGroupFactor(isHtr, g.name);
                       const subKgReq = round0(totalKgSol / factor);
                       const subQQReq = totalQQHas ? round0(totalQQReq) : null;
                       // Calcular Ne del grupo
@@ -909,7 +979,7 @@ function renderBalanceModule() {
         allItems.forEach(r => {
             const isMezcla = Boolean(r.isMezcla);
             if (!isMezcla) {
-                const factor = isHtr ? 0.60 : 0.65;
+                const factor = getGroupFactor(isHtr, r.group || '');
                 const kReq = round0(r.kg / factor);
                 // Si el hilado contiene (OCS) o (GOTS), incluir en el nombre del grupo
                 let groupName = r.group;
@@ -974,8 +1044,8 @@ function renderBalanceModule() {
             return b.kg - a.kg;
         });
 
-        // Procesar items que estAn en 'OTROS' cuando el resumen no los incluye en grupos
-        // (ej: HTR donde se excluye OTROS). Evita duplicar si OTROS ya estA presente.
+        // Procesar items que estan en 'OTROS' cuando el resumen no los incluye en grupos
+        // (ej: HTR donde se excluye OTROS). Evita duplicar si OTROS ya esta presente.
         const hasOtrosGroup = groups.some(g => (g.name || '').toString().toUpperCase() === 'OTROS');
         try {
             if (!hasOtrosGroup) {
@@ -1000,7 +1070,7 @@ function renderBalanceModule() {
                             });
                         } else {
                             // No es mezcla: tratar como un material Anico llamado 'OTROS'
-                            const factor = isHtr ? 0.60 : 0.65;
+                            const factor = getGroupFactor(isHtr, 'OTROS');
                             const kgReq = round0((it.kg || 0) / factor);
                             addToMat('OTROS', kgReq, it.orden);
                         }
@@ -1042,7 +1112,7 @@ function renderBalanceModule() {
             allItems.forEach(r => {
                 const isMezcla = Boolean(r.isMezcla);
                 if (!isMezcla) {
-                    const factor = isHtr ? 0.60 : 0.65;
+                    const factor = getGroupFactor(isHtr, r.group || '');
                     const kReq = round0(r.kg / factor);
                     let groupName = r.group;
                     const hilado = (r.hilado || '').toUpperCase();
@@ -1095,7 +1165,7 @@ function renderBalanceModule() {
                                     addToMat(finalTarget, c.kg, it.orden);
                                 });
                             } else {
-                                const factor = isHtr ? 0.60 : 0.65;
+                                const factor = getGroupFactor(isHtr, 'OTROS');
                                 const kgReq = round0((it.kg || 0) / factor);
                                 addToMat('OTROS', kgReq, it.orden);
                             }
@@ -1175,7 +1245,6 @@ function renderBalanceModule() {
         let totalMezclaKgReq = 0;
         const groupNorm = normalizeSummaryKey(groupName);
         const isHtr = !isCrudo;
-        const baseFactor = isHtr ? 0.60 : 0.65;
 
         function getNonMixDisplayName(item) {
             let rawGroup = item.group || '';
@@ -1202,7 +1271,8 @@ function renderBalanceModule() {
             const hiladoUpper = (item.hilado || '').toUpperCase();
 
             if (!isMezcla) {
-                const kReq = round0((item.kg || 0) / baseFactor);
+                const factor = getGroupFactor(isHtr, item.group || '');
+                const kReq = round0((item.kg || 0) / factor);
                 const displayName = getNonMixDisplayName(item);
                 if (normalizeSummaryKey(displayName) === groupNorm) {
                     const isAlgodon = isAlgodonText(displayName);
@@ -1222,7 +1292,7 @@ function renderBalanceModule() {
         });
 
         let modalHTML = `<div style="font-size: 12px;">`;
-        // BotAn para agregar/mover hilados hacia este grupo y botAn eliminar dentro del modal
+        // Boton para agregar/mover hilados hacia este grupo y boton eliminar dentro del modal
         modalHTML += `<div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
             <button style="padding:6px 10px; background:#10b981; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="openAddComponentModal('${btoa(groupName)}', ${isCrudo})">+ Agregar/Mover</button>
             <button style="padding:6px 10px; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="if(confirm('Eliminar grupo ${groupName}!')){ deleteGroupByEncoded('${encodedGroupName}', ${isCrudo ? 'false' : 'true'}); closeDetailModal(); }">&#x1F5D1;&#xFE0F; Eliminar</button>
@@ -1374,6 +1444,10 @@ function renderBalanceModule() {
 
     function getTituloGroupKeyFromItem(item) {
         if (!item) return 'SIN TITULO';
+        if (item._tituloOverride) {
+            const rawTitulo = (item.titulo || item.hilado || 'SIN TITULO');
+            return normalizeTitulo(rawTitulo);
+        }
         const hil = (item.hilado || '').toString().toUpperCase();
         if (/\b40(?:\/1)?\b[^\n\r]*\bVI\b/i.test(hil)) return '36/1';
         if (/\b50(?:\/1)?\b[^\n\r]*\bIV\b/i.test(hil)) return '44/1';
@@ -1433,12 +1507,35 @@ function renderBalanceModule() {
 
     function moveItemToTitle(itemId, targetTitle, isHtr) {
         try {
-            const dataArr = isHtr ? GLOBAL_DATA.htr : GLOBAL_DATA.nuevo;
-            const dataArrOrig = isHtr ? GLOBAL_DATA.htrOriginal : GLOBAL_DATA.nuevoOriginal;
-            let item = dataArr.find(x => x && x._id === itemId);
-            if (!item) item = dataArrOrig.find(x => x && x._id === itemId);
-            if (!item) { alert('No se encontrA la fila.'); closeAddComponentModal(); return; }
-            item.titulo = targetTitle;
+            const contexts = [
+                { arr: GLOBAL_DATA.nuevo, isHtr: false },
+                { arr: GLOBAL_DATA.htr, isHtr: true },
+                { arr: GLOBAL_DATA.nuevoOriginal, isHtr: false },
+                { arr: GLOBAL_DATA.htrOriginal, isHtr: true }
+            ];
+            let ref = null;
+            const found = [];
+            contexts.forEach(ctx => {
+                if (!ctx.arr) return;
+                const idx = ctx.arr.findIndex(x => x && x._id === itemId);
+                if (idx != -1) {
+                    ctx.idx = idx;
+                    ctx.item = ctx.arr[idx];
+                    found.push(ctx);
+                    if (!ref) ref = ctx;
+                }
+            });
+            if (!ref) { alert('No se encontrA la fila.'); closeAddComponentModal(); return; }
+
+            const originalTitulo = ref.item.titulo || 'SIN TITULO';
+            const originalIsMezcla = !!ref.item.isMezcla;
+            const useHtr = (typeof isHtr !== 'undefined') ? Boolean(isHtr) : ref.isHtr;
+            const dataArr = useHtr ? GLOBAL_DATA.htr : GLOBAL_DATA.nuevo;
+
+            found.forEach(ctx => {
+                ctx.item.titulo = targetTitle;
+                ctx.item._tituloOverride = true;
+            });
 
             identifyIncludedRows(GLOBAL_DATA.nuevo, GLOBAL_DATA.excelTotals.crudo);
             identifyIncludedRows(GLOBAL_DATA.htr, GLOBAL_DATA.excelTotals.htr);
@@ -1449,7 +1546,19 @@ function renderBalanceModule() {
             renderTituloModule();
             updateFooterTotals();
             closeAddComponentModal();
-            alert('Hilado movido a tÃ­tulo ' + targetTitle);
+            alert('Hilado movido a titulo ' + targetTitle);
+
+            const remainingInBlock = (dataArr || []).filter(r => (r.titulo || '').toString() === String(originalTitulo));
+            if (remainingInBlock.length === 0 && originalTitulo && String(originalTitulo).toUpperCase() !== 'OTROS') {
+                setTimeout(() => {
+                    if (confirm(`Deseas eliminar el bloque vacio "${originalTitulo}" o mantenerlo vacio?\n\nCancelar = Mantener vacio\nAceptar = Eliminar`)) {
+                        renderTituloModule();
+                    } else {
+                        addEmptyGroup(originalTitulo, useHtr ? 'htr' : (originalIsMezcla ? 'mix' : 'pure'));
+                        renderTituloModule();
+                    }
+                }, 100);
+            }
         } catch(e) { console.error('moveItemToTitle', e); }
     }
 
@@ -1497,58 +1606,98 @@ function renderBalanceModule() {
     }
 
     function moveItemToGroup(itemId, targetGroup) {
-        // Find item in any array and move
-        function updateInArray(arr) {
-            for (let i=0;i<arr.length;i++) {
-                if (arr[i]._id === itemId) {
-                    // Recalculate derived fields from hilado first
-                    recalcItemFields(arr[i]);
-                    // Then force the new group (and mark as non-mezcla if moving to OTROS)
-                    arr[i].group = targetGroup;
-                    if ((targetGroup || '').toString().toUpperCase() === 'OTROS') {
-                        arr[i].isMezcla = false;
-                        // Assign title to OTROS for Title module
-                        arr[i].titulo = 'OTROS';
-                    } else {
-                        // update titulo if needed from hilado
-                        const m = (arr[i].hilado || '').toString().match(/^\s*(\d+\/\d+)/);
-                        arr[i].titulo = m ? m[1] : arr[i].titulo || 'SIN TITULO';
-                    }
-                    return true;
-                }
-            }
-            return false;
-        }
-        let found = updateInArray(GLOBAL_DATA.nuevo) || updateInArray(GLOBAL_DATA.nuevoOriginal) || updateInArray(GLOBAL_DATA.htr) || updateInArray(GLOBAL_DATA.htrOriginal);
-        console.log('moveItemToGroup: moved', itemId, '->', targetGroup, 'found=', found);
-        if (!found) { alert('No se encontrA la fila.'); closeAddComponentModal(); return; }
-
-        // Recompute highlights and rerender
-        identifyIncludedRows(GLOBAL_DATA.nuevo, GLOBAL_DATA.excelTotals.crudo);
-        identifyIncludedRows(GLOBAL_DATA.htr, GLOBAL_DATA.excelTotals.htr);
-        sortDataArray(GLOBAL_DATA.nuevo);
-        sortDataArray(GLOBAL_DATA.htr);
-        renderPCPModule();
-        renderBalanceModule();
-        renderTituloModule();
-        updateFooterTotals();
-        closeAddComponentModal();
-        alert('Hilado movido a ' + targetGroup);
-
-        // Debug: asegurar que el grupo OTROS aparece en la vista cuando corresponde
         try {
-            const grouped = getGroupsFromData(GLOBAL_DATA.nuevo.concat(GLOBAL_DATA.htr));
-            const hasOtros = grouped.some(g => (g.name || '').toString().toUpperCase() === 'OTROS');
-            console.log('moveItemToGroup: grouped contains OTROS!', hasOtros);
-            // Si encontramos items con group OTROS pero no hay grupo en grouped (caso raro), forzar placeholder
-            const anyItemOtros = GLOBAL_DATA.nuevo.concat(GLOBAL_DATA.htr).some(it => (it.group || '').toString().toUpperCase() === 'OTROS');
-            if (anyItemOtros && !hasOtros) {
-                // Forzar placeholder en crudo por defecto
-                addEmptyGroup('OTROS', 'pure');
-                renderBalanceModule();
-                console.warn('moveItemToGroup: Forzado placeholder OTROS porque se detectA inconsistencia');
+            const contexts = [
+                { arr: GLOBAL_DATA.nuevo, isHtr: false },
+                { arr: GLOBAL_DATA.htr, isHtr: true },
+                { arr: GLOBAL_DATA.nuevoOriginal, isHtr: false },
+                { arr: GLOBAL_DATA.htrOriginal, isHtr: true }
+            ];
+            let ref = null;
+            const found = [];
+            contexts.forEach(ctx => {
+                if (!ctx.arr) return;
+                const idx = ctx.arr.findIndex(x => x && x._id === itemId);
+                if (idx != -1) {
+                    ctx.idx = idx;
+                    ctx.item = ctx.arr[idx];
+                    found.push(ctx);
+                    if (!ref) ref = ctx;
+                }
+            });
+            if (!ref) { alert('No se encontrA la fila.'); closeAddComponentModal(); return; }
+
+            const originalGroup = (ref.item.group || '').toString();
+            const originalIsMezcla = !!ref.item.isMezcla;
+            const useHtr = ref.isHtr;
+            const dataArr = useHtr ? GLOBAL_DATA.htr : GLOBAL_DATA.nuevo;
+            const targetUpper = String(targetGroup || '').toUpperCase();
+            let targetIsMezcla = null;
+            if (targetUpper != 'OTROS' && dataArr) {
+                const existing = dataArr.find(r => (r.group || '').toString() === String(targetGroup));
+                if (existing) targetIsMezcla = !!existing.isMezcla;
             }
-        } catch(e) { console.error('moveItemToGroup debug error', e); }
+
+            found.forEach(ctx => {
+                // Recalculate derived fields from hilado first
+                recalcItemFields(ctx.item);
+                // Then force the new group (and mark as non-mezcla if moving to OTROS)
+                ctx.item.group = targetGroup;
+                if (targetUpper === 'OTROS') {
+                    ctx.item.isMezcla = false;
+                    // Assign title to OTROS for Title module
+                    ctx.item.titulo = 'OTROS';
+                    ctx.item._tituloOverride = false;
+                } else {
+                    if (targetIsMezcla !== null) ctx.item.isMezcla = targetIsMezcla;
+                    // update titulo if needed from hilado
+                    const m = (ctx.item.hilado || '').toString().match(/^\s*(\d+\/\d+)/);
+                    ctx.item.titulo = m ? m[1] : ctx.item.titulo || 'SIN TITULO';
+                    ctx.item._tituloOverride = false;
+                }
+            });
+
+            console.log('moveItemToGroup: moved', itemId, '->', targetGroup, 'found=', true);
+
+            // Recompute highlights and rerender
+            identifyIncludedRows(GLOBAL_DATA.nuevo, GLOBAL_DATA.excelTotals.crudo);
+            identifyIncludedRows(GLOBAL_DATA.htr, GLOBAL_DATA.excelTotals.htr);
+            sortDataArray(GLOBAL_DATA.nuevo);
+            sortDataArray(GLOBAL_DATA.htr);
+            renderPCPModule();
+            renderBalanceModule();
+            renderTituloModule();
+            updateFooterTotals();
+            closeAddComponentModal();
+            alert('Hilado movido a ' + targetGroup);
+
+            const remainingInGroup = (dataArr || []).filter(r => (r.group || '').toString() === String(originalGroup));
+            if (remainingInGroup.length === 0 && originalGroup && String(originalGroup).toUpperCase() !== 'OTROS') {
+                setTimeout(() => {
+                    if (confirm(`Deseas eliminar el bloque vacio "${originalGroup}" o mantenerlo vacio?\n\nCancelar = Mantener vacio\nAceptar = Eliminar`)) {
+                        deleteGroup(originalGroup, useHtr ? 'htr' : (originalIsMezcla ? 'mix' : 'pure'));
+                    } else {
+                        addEmptyGroup(originalGroup, useHtr ? 'htr' : (originalIsMezcla ? 'mix' : 'pure'));
+                        renderBalanceModule();
+                    }
+                }, 100);
+            }
+
+            // Debug: asegurar que el grupo OTROS aparece en la vista cuando corresponde
+            try {
+                const grouped = getGroupsFromData(GLOBAL_DATA.nuevo.concat(GLOBAL_DATA.htr));
+                const hasOtros = grouped.some(g => (g.name || '').toString().toUpperCase() === 'OTROS');
+                console.log('moveItemToGroup: grouped contains OTROS!', hasOtros);
+                // Si encontramos items con group OTROS pero no hay grupo en grouped (caso raro), forzar placeholder
+                const anyItemOtros = GLOBAL_DATA.nuevo.concat(GLOBAL_DATA.htr).some(it => (it.group || '').toString().toUpperCase() === 'OTROS');
+                if (anyItemOtros && !hasOtros) {
+                    // Forzar placeholder en crudo por defecto
+                    addEmptyGroup('OTROS', 'pure');
+                    renderBalanceModule();
+                    console.warn('moveItemToGroup: Forzado placeholder OTROS porque se detectA inconsistencia');
+                }
+            } catch(e) { console.error('moveItemToGroup debug error', e); }
+        } catch(e) { console.error('moveItemToGroup', e); }
     }
 
     // --- DRAG AND DROP HANDLERS ---
@@ -1563,14 +1712,25 @@ function renderBalanceModule() {
         if (tr) {
             tr.classList.add('dragging');
         }
-        // Guardar referencia al objeto arrastrado (buscar en arrays principales u originales)
+        // Guardar referencia al objeto arrastrado (buscar en arrays principales)
         draggedItemRef = null;
         try {
-            const searchArrays = [GLOBAL_DATA.nuevo, GLOBAL_DATA.nuevoOriginal, GLOBAL_DATA.htr, GLOBAL_DATA.htrOriginal];
+            const searchArrays = [GLOBAL_DATA.nuevo, GLOBAL_DATA.htr];
             for (let arr of searchArrays) {
                 if (!arr) continue;
                 const found = arr.find(x => x && x._id === id);
-                if (found) { draggedItemRef = { item: found, fromArray: arr }; break; }
+                if (found) { 
+                    draggedItemRef = { 
+                        item: found, 
+                        fromArray: arr,
+                        originalGroup: found.group,
+                        originalTitulo: found.titulo,
+                        originalIsMezcla: !!found.isMezcla,
+                        originalTituloOverride: !!found._tituloOverride,
+                        isHtr: (arr === GLOBAL_DATA.htr)
+                    }; 
+                    break; 
+                }
             }
         } catch(ex) { console.warn('handleDragStart ref search error', ex); }
         console.log('Arrastrando hilado:', id, 'refFound=', !!draggedItemRef);
@@ -1593,17 +1753,54 @@ function renderBalanceModule() {
         }
     });
 
+    // Funcion auxiliar para verificar si bloque quedara vacio y preguntar ANTES de renderizar
+    // Retorna true si se debe continuar con el render, false si se cancelo el movimiento
+    function checkAndHandleEmptyBlock(dataArr, originalBlock, isTituloModule, isCrudo, originalIsMezcla) {
+        if (!originalBlock || originalBlock.toUpperCase() === 'OTROS') return { proceed: true, keepEmpty: false };
+        
+        let remainingInBlock = [];
+        if (isTituloModule) {
+            remainingInBlock = dataArr.filter(r => (r.titulo || '').toString() === originalBlock);
+        } else {
+            remainingInBlock = dataArr.filter(r => (r.group || '').toString() === originalBlock);
+        }
+        
+        if (remainingInBlock.length === 0) {
+            const tableType = isTituloModule ? 'titulo' : (isCrudo ? (originalIsMezcla ? 'mix' : 'pure') : 'htr');
+            const choice = confirm(`El bloque "${originalBlock}" quedara vacio.\n\nDesea ELIMINAR el bloque?\n\n- Aceptar = Eliminar bloque\n- Cancelar = Mantener bloque vacio`);
+            if (choice) {
+                // Eliminar: no agregar placeholder
+                return { proceed: true, keepEmpty: false, tableType: tableType };
+            } else {
+                // Mantener vacio: agregar placeholder
+                if (!isTituloModule) {
+                    addEmptyGroup(originalBlock, tableType);
+                }
+                return { proceed: true, keepEmpty: true, tableType: tableType };
+            }
+        }
+        return { proceed: true, keepEmpty: false };
+    }
+
     function handleDrop(e, targetId) {
         e.preventDefault();
         const tr = e.target.closest('tr');
         if (tr) tr.classList.remove('drag-over');
+        document.querySelectorAll('tr.dragging').forEach(el => el.classList.remove('dragging'));
         
         if (!draggedId || draggedId === targetId) {
             draggedId = null;
+            draggedItemRef = null;
             return;
         }
 
         try {
+            // Detectar si estamos en el modulo Titulo
+            let tituloModuleActive = false;
+            try {
+                tituloModuleActive = document.getElementById('mod-titulo').classList.contains('active');
+            } catch(e) {}
+
             const isCrudo = (GLOBAL_DATA.currentTab === 'crudo');
             const dataArr = isCrudo ? GLOBAL_DATA.nuevo : GLOBAL_DATA.htr;
 
@@ -1611,36 +1808,64 @@ function renderBalanceModule() {
             const targetIndex = dataArr.findIndex(i => i._id === targetId);
 
             if (draggedIndex === -1 || targetIndex === -1) {
-                console.warn('No se encontrA hilado a mover');
+                console.warn('No se encontró hilado a mover');
                 draggedId = null;
+                draggedItemRef = null;
                 return;
             }
 
             const draggedItem = dataArr[draggedIndex];
             const targetItem = dataArr[targetIndex];
+            
+            // Guardar valores originales
             const originalGroup = draggedItem.group;
             const originalTitulo = draggedItem.titulo;
             const originalIsMezcla = !!draggedItem.isMezcla;
-            const originalIndex = draggedIndex; // Guardar Andice original
+            const originalTituloOverride = !!draggedItem._tituloOverride;
 
-            // Detectar si estamos en el mAdulo TAtulo
-            let tituloModuleActive = false;
-            try {
-                tituloModuleActive = document.getElementById('mod-titulo').classList.contains('active');
-            } catch(e) {}
+            // Determinar el bloque destino
+            let targetBlock = tituloModuleActive ? targetItem.titulo : targetItem.group;
+            let sourceBlock = tituloModuleActive ? originalTitulo : originalGroup;
+            
+            // Si es el mismo bloque, solo reordenar sin confirmación
+            if (sourceBlock === targetBlock) {
+                dataArr.splice(draggedIndex, 1);
+                let newTargetIndex = dataArr.findIndex(i => i._id === targetId);
+                if (newTargetIndex >= 0) {
+                    dataArr.splice(newTargetIndex + 1, 0, draggedItem);
+                } else {
+                    dataArr.push(draggedItem);
+                }
+                if (tituloModuleActive) {
+                    renderTituloModule();
+                } else {
+                    renderBalanceModule();
+                }
+                draggedId = null;
+                draggedItemRef = null;
+                return;
+            }
 
-            // Si estamos en TAtulo: cambiar `titulo` (no `group`)
-            // Si estamos en Material: cambiar `group` (como siempre)
+            // Preguntar confirmacion antes de mover
+            const hiladoName = draggedItem.hilado || draggedItem.orden || 'este hilado';
+            const confirmMove = confirm(`Esta seguro de mover "${hiladoName}" al bloque "${targetBlock}"?`);
+            
+            if (!confirmMove) {
+                draggedId = null;
+                draggedItemRef = null;
+                return;
+            }
+
+            // Realizar el movimiento
             if (tituloModuleActive) {
                 draggedItem.titulo = targetItem.titulo;
-                console.log('Hilado movido a tAtulo:', draggedItem.titulo);
+                draggedItem._tituloOverride = true;
             } else {
                 draggedItem.group = targetItem.group;
                 draggedItem.isMezcla = targetItem.isMezcla;
-                console.log('Hilado movido a grupo:', draggedItem.group);
             }
 
-            // LOGICA DE REORDENAMIENTO: mover el item a despuAs del destino
+            // Reordenar: mover el item despues del destino
             dataArr.splice(draggedIndex, 1);
             let newTargetIndex = dataArr.findIndex(i => i._id === targetId);
             if (newTargetIndex >= 0) {
@@ -1648,128 +1873,93 @@ function renderBalanceModule() {
             } else {
                 dataArr.push(draggedItem);
             }
-            
-            // Detectar si el bloque original quedA vacAo (grupo o tAtulo segAn mAdulo)
-            let remainingInBlock = [];
-            let blockName = '';
+
+            // Verificar si el bloque origen quedara vacio ANTES de renderizar
+            checkAndHandleEmptyBlock(dataArr, sourceBlock, tituloModuleActive, isCrudo, originalIsMezcla);
+
+            // Renderizar
             if (tituloModuleActive) {
-                remainingInBlock = dataArr.filter(r => (r.titulo || '').toString() === originalTitulo);
-                blockName = originalTitulo;
+                renderTituloModule();
             } else {
-                remainingInBlock = dataArr.filter(r => (r.group || '').toString() === originalGroup);
-                blockName = originalGroup;
+                renderBalanceModule();
             }
 
-            if (remainingInBlock.length === 0 && blockName && blockName.toUpperCase() !== 'OTROS') {
-                // Bloque quedA vacAo, mostrar diAlogo SIN renderizar aAn
-                setTimeout(() => {
-                    if (confirm(`ADeseas eliminar el bloque vacAo "${blockName}" o mantenerlo vacAo!\n\nCancelar = Mantener vacAo\nAceptar = Eliminar`)) {
-                        // Usuario aceptA: eliminar el bloque
-                        if (tituloModuleActive) {
-                            // En TAtulo, solo re-renderizar (el bloque no aparecerA porque no hay items con ese titulo)
-                            renderTituloModule();
-                        } else {
-                            deleteGroup(blockName, isCrudo ? (originalIsMezcla ? 'mix' : 'pure') : 'htr');
-                        }
-                    } else {
-                        // Usuario cancelA: revertir cambios (titulo Y posiciAn en array)
-                        if (tituloModuleActive) {
-                            // Revertir el cambio de tAtulo al original
-                            draggedItem.titulo = originalTitulo;
-                            // Revertir posiciAn en array: remover de posiciAn actual e insertar en posiciAn original
-                            const currentIdx = dataArr.findIndex(i => i._id === draggedId);
-                            if (currentIdx !== -1) {
-                                dataArr.splice(currentIdx, 1);
-                                // Asegurar que no sobrepasamos el rango
-                                if (originalIndex <= dataArr.length) {
-                                    dataArr.splice(originalIndex, 0, draggedItem);
-                                } else {
-                                    dataArr.push(draggedItem);
-                                }
-                            }
-                            renderTituloModule();
-                        } else {
-                            addEmptyGroup(blockName, isCrudo ? (originalIsMezcla ? 'mix' : 'pure') : 'htr');
-                            renderBalanceModule();
-                        }
-                    }
-                }, 100);
-            } else {
-                // Forzar recAlculo del mAdulo
-                if (tituloModuleActive) {
-                    renderTituloModule();
-                } else {
-                    renderBalanceModule();
-                }
-            }
         } catch(err) {
             console.error('Error en handleDrop:', err);
         } finally {
             draggedId = null;
+            draggedItemRef = null;
         }
     }
 
     function handleDropToOtros(e) {
         e.preventDefault();
-        const tbody = e.target.closest('tbody');
-        if (tbody) {
-            const tr = tbody.closest('div.table-wrap');
-            // Remove any visual hints
-            const possible = document.querySelectorAll('tr.drag-over');
-            possible.forEach(x => x.classList.remove('drag-over'));
-        }
+        document.querySelectorAll('tr.drag-over').forEach(x => x.classList.remove('drag-over'));
+        document.querySelectorAll('tr.dragging').forEach(el => el.classList.remove('dragging'));
 
         if (!draggedId) return;
-        // Try usar draggedItemRef primero (mAs robusto)
-        let item = null;
-        if (draggedItemRef && draggedItemRef.item) {
-            item = draggedItemRef.item;
-        }
-        try {
-            const isCrudo = (GLOBAL_DATA.currentTab === 'crudo');
-            const dataArr = isCrudo ? GLOBAL_DATA.nuevo : GLOBAL_DATA.htr;
-            if (!item) {
-                // Fallback: buscar en arrays
-                const draggedIndex = dataArr.findIndex(i => i._id === draggedId);
-                if (draggedIndex === -1) { draggedId = null; draggedItemRef = null; return; }
-                item = dataArr[draggedIndex];
-            }
-            // Guardar el grupo original para detectar si quedarA vacAo
-            const originalGroup = item.group;
-            const originalIsMezcla = !!item.isMezcla;
 
-            // Reasignar grupo a OTROS y marcar como no mezcla
-            item.group = 'OTROS';
-            item.isMezcla = false;
-            // Si estamos en el mAdulo TAtulo, asignar tambiAn al bloque de tAtulo OTROS
+        try {
+            // Detectar si estamos en el modulo Titulo
+            let tituloModuleActive = false;
             try {
-                const tituloModuleActive = document.getElementById('mod-titulo').classList.contains('active');
-                if (tituloModuleActive) item.titulo = 'OTROS';
+                tituloModuleActive = document.getElementById('mod-titulo').classList.contains('active');
             } catch(e) {}
 
+            const isCrudo = (GLOBAL_DATA.currentTab === 'crudo');
+            const dataArr = isCrudo ? GLOBAL_DATA.nuevo : GLOBAL_DATA.htr;
+            
+            const draggedIndex = dataArr.findIndex(i => i._id === draggedId);
+            if (draggedIndex === -1) { 
+                draggedId = null; 
+                draggedItemRef = null; 
+                return; 
+            }
+            
+            const item = dataArr[draggedIndex];
+            const originalGroup = item.group;
+            const originalTitulo = item.titulo;
+            const originalIsMezcla = !!item.isMezcla;
+            const sourceBlock = tituloModuleActive ? originalTitulo : originalGroup;
+
+            // Si ya esta en OTROS, no hacer nada
+            if (sourceBlock && sourceBlock.toUpperCase() === 'OTROS') {
+                draggedId = null;
+                draggedItemRef = null;
+                return;
+            }
+
+            // Preguntar confirmacion
+            const hiladoName = item.hilado || item.orden || 'este hilado';
+            const confirmMove = confirm(`Esta seguro de mover \"${hiladoName}\" al bloque \"OTROS\"?`);
+            
+            if (!confirmMove) {
+                draggedId = null;
+                draggedItemRef = null;
+                return;
+            }
+
+            // Realizar el movimiento
+            item.group = 'OTROS';
+            item.isMezcla = false;
+            if (tituloModuleActive) {
+                item.titulo = 'OTROS';
+            }
+
             // Mover al final del array
-            // Solo hacer splice si encontramos el Andice
-            const idxInArr = dataArr.findIndex(i => i._id === draggedId);
-            if (idxInArr !== -1) dataArr.splice(idxInArr, 1);
+            dataArr.splice(draggedIndex, 1);
             dataArr.push(item);
 
-            // Detectar si el grupo original quedA vacAo
-            const remainingInGroup = dataArr.filter(r => (r.group || '').toString() === originalGroup);
-            if (remainingInGroup.length === 0 && originalGroup && originalGroup.toUpperCase() !== 'OTROS') {
-                // Grupo quedA vacAo, mostrar diAlogo SIN renderizar aAn
-                setTimeout(() => {
-                    if (confirm(`ADeseas eliminar el bloque vacAo "${originalGroup}" o mantenerlo vacAo!\n\nCancelar = Mantener vacAo\nAceptar = Eliminar`)) {
-                        // Usuario aceptA: eliminar el grupo
-                        deleteGroup(originalGroup, isCrudo ? (originalIsMezcla ? 'mix' : 'pure') : 'htr');
-                    } else {
-                        // Usuario cancelA: preservar el bloque vacAo y renderizar
-                        addEmptyGroup(originalGroup, isCrudo ? (originalIsMezcla ? 'mix' : 'pure') : 'htr');
-                        renderBalanceModule();
-                    }
-                }, 100);
+            // Verificar si el bloque origen quedara vacio ANTES de renderizar
+            checkAndHandleEmptyBlock(dataArr, sourceBlock, tituloModuleActive, isCrudo, originalIsMezcla);
+
+            // Renderizar
+            if (tituloModuleActive) {
+                renderTituloModule();
             } else {
                 renderBalanceModule();
             }
+
         } catch(err) {
             console.error('Error en handleDropToOtros:', err);
         } finally {
@@ -1778,23 +1968,67 @@ function renderBalanceModule() {
         }
     }
 
-    // Permitir soltar sobre un bloque vacAo para mover el item al grupo target
+    // Permitir soltar sobre un bloque vacio para mover el item al grupo target
     function handleDropToGroup(e, targetGroupName, isMez, isHtr) {
         e.preventDefault();
+        document.querySelectorAll('tr.drag-over').forEach(x => x.classList.remove('drag-over'));
+        document.querySelectorAll('tr.dragging').forEach(el => el.classList.remove('dragging'));
+
+        if (!draggedId) return;
+
         try {
             const isCrudo = (GLOBAL_DATA.currentTab === 'crudo');
-            // Preferir isHtr flag si se pasa
             const useHtr = (typeof isHtr !== 'undefined') ? Boolean(isHtr) : !isCrudo;
             const dataArr = useHtr ? GLOBAL_DATA.htr : GLOBAL_DATA.nuevo;
-            if (!draggedId) return;
-            const idx = dataArr.findIndex(i => i._id === draggedId);
+            
+            // Buscar el item en el array correspondiente
+            let idx = dataArr.findIndex(i => i._id === draggedId);
+            let item = null;
+            let originalGroup = '';
+            let originalIsMezcla = false;
+
             if (idx === -1) {
-                // If not found in the active array, search the other array
+                // Buscar en el otro array
                 const other = useHtr ? GLOBAL_DATA.nuevo : GLOBAL_DATA.htr;
                 const idx2 = other.findIndex(i => i._id === draggedId);
-                if (idx2 === -1) { draggedId = null; return; }
-                // Move item between arrays
-                const item = other.splice(idx2,1)[0];
+                if (idx2 === -1) { 
+                    draggedId = null; 
+                    return; 
+                }
+                item = other[idx2];
+                originalGroup = item.group;
+                originalIsMezcla = !!item.isMezcla;
+            } else {
+                item = dataArr[idx];
+                originalGroup = item.group;
+                originalIsMezcla = !!item.isMezcla;
+            }
+
+            // Si ya esta en el mismo grupo, no hacer nada
+            if (originalGroup === targetGroupName) {
+                draggedId = null;
+                return;
+            }
+
+            // Preguntar confirmacion
+            const hiladoName = item.hilado || item.orden || 'este hilado';
+            const confirmMove = confirm(`Esta seguro de mover \"${hiladoName}\" al bloque \"${targetGroupName}\"?`);
+            
+            if (!confirmMove) {
+                draggedId = null;
+                return;
+            }
+
+            // Verificar si el bloque origen quedara vacio ANTES de renderizar
+            const sourceBlock = originalGroup;
+            checkAndHandleEmptyBlock(dataArr, sourceBlock, false, !useHtr, originalIsMezcla);
+
+            // Realizar el movimiento
+            if (idx === -1) {
+                // Mover entre arrays
+                const other = useHtr ? GLOBAL_DATA.nuevo : GLOBAL_DATA.htr;
+                const idx2 = other.findIndex(i => i._id === draggedId);
+                other.splice(idx2, 1);
                 item.group = targetGroupName;
                 item.isMezcla = Boolean(isMez);
                 if (!item.titulo || item.titulo === 'OTROS') {
@@ -1803,7 +2037,6 @@ function renderBalanceModule() {
                 }
                 dataArr.push(item);
             } else {
-                const item = dataArr[idx];
                 item.group = targetGroupName;
                 item.isMezcla = Boolean(isMez);
                 if (!item.titulo || item.titulo === 'OTROS') {
@@ -1812,7 +2045,7 @@ function renderBalanceModule() {
                 }
             }
 
-            // Re-render and recalc
+            // Re-render
             identifyIncludedRows(GLOBAL_DATA.nuevo, GLOBAL_DATA.excelTotals.crudo);
             identifyIncludedRows(GLOBAL_DATA.htr, GLOBAL_DATA.excelTotals.htr);
             sortDataArray(GLOBAL_DATA.nuevo);
@@ -1821,62 +2054,66 @@ function renderBalanceModule() {
             renderBalanceModule();
             renderTituloModule();
             updateFooterTotals();
-        } catch(e) { console.error('handleDropToGroup error', e); }
-        finally { draggedId = null; }
+
+        } catch(e) { 
+            console.error('handleDropToGroup error', e); 
+        } finally { 
+            draggedId = null; 
+        }
     }
 
-    // Permitir soltar sobre un BLOQUE de TATULO para cambiar el `titulo` del Atem
+    // Permitir soltar sobre un BLOQUE de TÍTULO para cambiar el `titulo` del ítem
     function handleDropToTitle(e, targetTitle, isMez, isHtr) {
         e.preventDefault();
+        document.querySelectorAll('tr.drag-over').forEach(x => x.classList.remove('drag-over'));
+        document.querySelectorAll('tr.dragging').forEach(el => el.classList.remove('dragging'));
+
+        if (!draggedId) { 
+            console.warn('handleDropToTitle: no draggedId'); 
+            return; 
+        }
+
         try {
             console.log('handleDropToTitle invoked', { draggedId, targetTitle, isMez, isHtr });
             const isCrudo = (GLOBAL_DATA.currentTab === 'crudo');
-            // Preferir isHtr flag si se pasa
             const useHtr = (typeof isHtr !== 'undefined') ? Boolean(isHtr) : !isCrudo;
             const dataArr = useHtr ? GLOBAL_DATA.htr : GLOBAL_DATA.nuevo;
-            if (!draggedId) { console.warn('handleDropToTitle: no draggedId'); return; }
-            // Buscar el Atem en todos los arrays posibles (incluyendo originales)
-            const searchArrays = [GLOBAL_DATA.nuevo, GLOBAL_DATA.nuevoOriginal, GLOBAL_DATA.htr, GLOBAL_DATA.htrOriginal];
-            let found = false;
-            for (let arr of searchArrays) {
-                if (!arr) continue;
-                const i = arr.findIndex(x => x && x._id === draggedId);
-                if (i !== -1) {
-                    const item = arr.splice(i,1)[0];
-                    // Asignar nuevo tAtulo
-                    item.titulo = targetTitle;
-                    // AAadir al array objetivo (dataArr puede ser el mismo u otro)
-                    dataArr.push(item);
-                    found = true;
-                    console.log('handleDropToTitle: moved item', item._id, 'to title', targetTitle);
-                    break;
-                }
+            
+            // Buscar el item
+            const idx = dataArr.findIndex(i => i._id === draggedId);
+            if (idx === -1) { 
+                console.warn('handleDropToTitle: item not found'); 
+                draggedId = null; 
+                return; 
             }
-            // Si no se encontrA en los originales, buscar dentro del dataArr y actualizar titulo en sitio
-            if (!found) {
-                const idx = dataArr.findIndex(i => i._id === draggedId);
-                if (idx !== -1) {
-                    dataArr[idx].titulo = targetTitle;
-                    found = true;
-                }
-            }
-            if (!found) { console.warn('handleDropToTitle: item not found in any array', draggedId); }
-            // If we have a direct reference from dragstart, prefer moving that object
-            if (draggedItemRef && draggedItemRef.item) {
-                try {
-                    // remove from its original array if present
-                    const origArr = draggedItemRef.fromArray;
-                    const idxOrig = origArr.findIndex(x => x && x._id === draggedItemRef.item._id);
-                    if (idxOrig !== -1) origArr.splice(idxOrig,1);
-                    // assign titulo and push to target
-                    draggedItemRef.item.titulo = targetTitle;
-                    dataArr.push(draggedItemRef.item);
-                    console.log('handleDropToTitle: moved via ref', draggedItemRef.item._id);
-                    found = true;
-                } catch(e) { console.error('handleDropToTitle ref-move error', e); }
+            
+            const item = dataArr[idx];
+            const originalTitulo = item.titulo;
+
+            // Si ya esta en el mismo titulo, no hacer nada
+            if (originalTitulo === targetTitle) {
+                draggedId = null;
+                return;
             }
 
-            // Re-render and recalc
+            // Preguntar confirmacion
+            const hiladoName = item.hilado || item.orden || 'este hilado';
+            const confirmMove = confirm(`Esta seguro de mover \"${hiladoName}\" al bloque \"${targetTitle}\"?`);
+            
+            if (!confirmMove) {
+                draggedId = null;
+                return;
+            }
+
+            // Verificar si el bloque origen quedara vacio ANTES de renderizar
+            checkAndHandleEmptyBlock(dataArr, originalTitulo, true, !useHtr, false);
+
+            // Realizar el movimiento
+            item.titulo = targetTitle;
+            item._tituloOverride = true;
+            console.log('handleDropToTitle: moved item', item._id, 'to title', targetTitle);
+
+            // Re-render
             identifyIncludedRows(GLOBAL_DATA.nuevo, GLOBAL_DATA.excelTotals.crudo);
             identifyIncludedRows(GLOBAL_DATA.htr, GLOBAL_DATA.excelTotals.htr);
             sortDataArray(GLOBAL_DATA.nuevo);
@@ -1885,19 +2122,24 @@ function renderBalanceModule() {
             renderBalanceModule();
             renderTituloModule();
             updateFooterTotals();
-        } catch(e) { console.error('handleDropToTitle error', e); }
-        finally { draggedId = null; }
+
+        } catch(e) { 
+            console.error('handleDropToTitle error', e); 
+        } finally { 
+            draggedId = null; 
+        }
     }
 
-    // Confirmar eliminaciAn de grupo vacAo
+    // Confirmar eliminacion de grupo vacio
     function confirmDeleteGroup(groupName, tableType) {
-        if (confirm(`ADeseas eliminar el bloque vacAo "${groupName}"!`)) {
+        if (confirm(`Deseas eliminar el bloque vacio "${groupName}"?`)) {
             deleteGroup(groupName, tableType);
         }
     }
 
-    // Eliminar grupo vacAo
+    // Eliminar grupo vacio
     function deleteGroup(groupName, tableType) {
+        console.log('deleteGroup llamado:', groupName, tableType);
         // Buscar y eliminar del array correspondiente
         if (tableType === 'pure') {
             GLOBAL_DATA.nuevo = GLOBAL_DATA.nuevo.filter(r => (r.group || '').toString() !== groupName);
@@ -1905,6 +2147,10 @@ function renderBalanceModule() {
             GLOBAL_DATA.nuevo = GLOBAL_DATA.nuevo.filter(r => (r.group || '').toString() !== groupName);
         } else if (tableType === 'htr') {
             GLOBAL_DATA.htr = GLOBAL_DATA.htr.filter(r => (r.group || '').toString() !== groupName);
+        } else if (tableType === 'titulo') {
+            // Para modulo Titulo: filtrar por titulo en lugar de group
+            GLOBAL_DATA.nuevo = GLOBAL_DATA.nuevo.filter(r => (r.titulo || '').toString() !== groupName);
+            GLOBAL_DATA.htr = GLOBAL_DATA.htr.filter(r => (r.titulo || '').toString() !== groupName);
         }
         // Remover cualquier placeholder asociado
         if (GLOBAL_DATA.emptyGroups) {
@@ -1914,11 +2160,12 @@ function renderBalanceModule() {
                 GLOBAL_DATA.emptyGroups.crudo = (GLOBAL_DATA.emptyGroups.crudo || []).filter(p => (p.name || '') !== groupName);
             }
         }
-        // Re-renderizar
+        // Re-renderizar ambos modulos
         renderBalanceModule();
+        renderTituloModule();
     }
 
-    // AAadir placeholder para un bloque vacAo (evita duplicados)
+    // Anadir placeholder para un bloque vacio (evita duplicados)
     function addEmptyGroup(groupName, tableType) {
         if (!groupName) return;
         if (!GLOBAL_DATA.emptyGroups) GLOBAL_DATA.emptyGroups = { crudo: [], htr: [] };
