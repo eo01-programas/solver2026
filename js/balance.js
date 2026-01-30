@@ -705,7 +705,7 @@ function getSolverMaterialInfo(materialName, tipo) {
         }
         if (!group) return null;
         const kgSol = (group.items || []).reduce((s, it) => s + (Number(it.kg || 0)), 0);
-        const factor = isHtr ? 0.60 : 0.65;
+        const factor = (typeof getGroupFactor === 'function') ? getGroupFactor(isHtr, group.name || materialName) : (isHtr ? 0.60 : 0.65);
         const kgReq = (kgSol) ? (kgSol / factor) : null;
         return { kgSol, kgReq, isHtr };
     } catch (e) {
