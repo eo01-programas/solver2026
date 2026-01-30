@@ -404,6 +404,10 @@
                     } catch(e) {}
                     // -------------------------------------------------------------------------------
 
+                    // --- NORMALIZAR MATERIAL: UPLAND→PIMA, eliminar descriptivos, etc. ---
+                    rawHilado = normalizeHilado(rawHilado);
+                    // -------------------------------------------------------------------------------
+
                     // --- ASIGNACIAN DE GRUPO INICIAL ---
                     let cleanRaw = rawHilado.toUpperCase().replace(/^\d+\/\d+\s+/, '').trim();
                     
@@ -666,11 +670,13 @@
     function normalizeTitulo(t) {
         if (!t) return 'SIN TITULO';
         const s = String(t).toUpperCase().trim();
-        // Reglas especAficas solicitadas:
-        // 40/1 VI -> agrupar como 36/1
-        if (/^40\/1\b.*\bVI\b/i.test(s)) return '36/1';
-        // 50/1 IV -> agrupar como 44/1
-        if (/^50\/1\b.*\bIV\b/i.test(s)) return '44/1';
+        // Reglas especÃ­ficas solicitadas:
+        // Mapear variantes de 40 VI -> grupo 36/1
+        // Acepta formas: "40 VI", "40/1 VI", "40 VI COP...", etc.
+        if (/^40\s*(?:\/\s*1)?\s.*\bVI\b|^40\s*(?:\/\s*1)?\s*VI\b/i.test(s)) return '36/1';
+        // Mapear variantes de 50 IV -> grupo 44/1
+        // Acepta formas: "50 IV", "50/1 IV", "50 IV ORG...", etc.
+        if (/^50\s*(?:\/\s*1)?\s.*\bIV\b|^50\s*(?:\/\s*1)?\s*IV\b/i.test(s)) return '44/1';
         // Quitar sufijos de calidad numerales raros y devolver bAsico (ej: '40/1 A' -> '40/1')
         const m = s.match(/^(\d+\/\d+)/);
         if (m) return m[1];
@@ -686,9 +692,9 @@
 
             // Reglas explAcitas del usuario (coberturas con y sin '/1')
             // 40/1 VI  -> 36
-            if (/^\s*40(?:\/1)!\b.*\bVI\b/i.test(s)) return 36;
+            if (/^\s*40\s*(?:\/\s*1)?[^\n\r]*\bVI\b/i.test(s)) return 36;
             // 50 IV -> 44
-            if (/^\s*50(?:\/1)!\b.*\bIV\b/i.test(s)) return 44;
+            if (/^\s*50\s*(?:\/\s*1)?[^\n\r]*\bIV\b/i.test(s)) return 44;
 
             // Intentar extraer formato 'NN/NN' -> devolver primer nAmero
             const m = s.match(/(\d+)\s*\/\s*\d+/);
