@@ -13,6 +13,36 @@
         .module-btn:hover { background: rgba(255,255,255,0.1); color: white; }
         .module-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; box-shadow: 0 0 10px rgba(59, 130, 246, 0.3); }
         
+        /* BOTON DESCARGAR EXCEL */
+        .download-btn {
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+            border: none;
+            color: white;
+            padding: 8px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 20px;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(5, 150, 105, 0.3);
+        }
+        .download-btn:hover {
+            background: linear-gradient(135deg, #047857 0%, #059669 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(5, 150, 105, 0.4);
+        }
+        .download-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(5, 150, 105, 0.3);
+        }
+        .download-btn .download-icon {
+            font-size: 14px;
+        }
+        
         .file-input-wrapper { display: flex; align-items: center; gap: 10px; }
         .file-input-wrapper input { color: #cbd5e1; font-size: 0.85rem; }
         .app-version { color: #94a3b8; font-size: 0.75rem; font-weight: 700; margin-right: 10px; letter-spacing: 0.5px; }
@@ -201,6 +231,9 @@
         /* Group Headers */
         .bal-header-row { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 12px 16px; border-bottom: 2px solid #cbd5e1; }
         .bal-title { font-weight: 800; color: #0f172a; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .bal-header-actions { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; }
+        .bal-header-merma { display: inline-flex; align-items: center; gap: 6px; }
+        .bal-header-merma .mix-tag { color: #475569; opacity: 0.9; }
         .bal-subtotal { background: #f8fafc; font-weight: 800; color: #334155; border-top: 2px solid #64748b; font-size: 13px; }
         .bal-subtotal td { border-top: 2px solid #64748b; }
 
