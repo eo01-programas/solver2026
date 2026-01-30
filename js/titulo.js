@@ -17,8 +17,8 @@
         console.log('renderTituloModule - HTR items:', activeHtr.length, activeHtr);
 
         // Renderizar las 3 vistas
-        document.getElementById('tit-table-crudo').innerHTML = generateTituloTable(actCrudoPuro, 'crudo') + renderOtrosBlock(false, actCrudoPuro);
-        document.getElementById('tit-table-mezcla').innerHTML = generateTituloTable(actCrudoMezcla, 'mezcla') + renderOtrosBlock(false, actCrudoMezcla);
+        document.getElementById('tit-table-crudo').innerHTML = generateTituloTable(actCrudoPuro, 'crudo') + renderOtrosBlock(false, actCrudoPuro, false);
+        document.getElementById('tit-table-mezcla').innerHTML = generateTituloTable(actCrudoMezcla, 'mezcla') + renderOtrosBlock(false, actCrudoMezcla, false);
 
         // Para HTR: tomar exactamente los grupos usados en Agrup Material (excluyendo OTROS)
         // y luego agrupar esos items por TÍTULO para mostrarlos en el módulo Título.
@@ -29,7 +29,7 @@
         const groupedHtrForTable = (groupedHtr || []).filter(g => ((g.name||'').toString().toUpperCase() !== 'OTROS'));
         // Aplanar items para pasarlos a la vista de TÍTULO (agrupamiento por titulo lo hace generateTituloTable)
         const htrItemsForTitle = groupedHtrForTable.flatMap(g => g.items || []);
-        document.getElementById('tit-table-htr').innerHTML = generateTituloTable(htrItemsForTitle, 'htr') + renderOtrosBlock(true, (activeHtr || []).filter(r => (r.group||'').toString().toUpperCase() === 'OTROS'));
+        document.getElementById('tit-table-htr').innerHTML = generateTituloTable(htrItemsForTitle, 'htr') + renderOtrosBlock(true, (activeHtr || []).filter(r => (r.group||'').toString().toUpperCase() === 'OTROS'), false);
         
         updateTituloFooter();
         if (typeof applyTableFilters === 'function') applyTableFilters();
@@ -94,24 +94,22 @@
                     headerLabel = `${titulo} (incluye: ${uniqueRaw.join(', ')})`;
                 }
             } catch(e) {}
-            // Permitir soltar sobre el bloque de tAtulo para mover filas a este TATULO (cambia `titulo` del item)
-            const isMezGroup = (grupo.items || []).some(it => !!it.isMezcla);
-            html += `<div class="table-wrap" ondragover="allowDrop(event)" ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDropToTitle(event, '${safeTitle}', ${isMezGroup ? 'true' : 'false'}, ${tipo === 'htr' ? 'true' : 'false'})"><div class="bal-header-row"><span class="bal-title">TITULO: ${headerLabel}</span>`;
+            html += `<div class="table-wrap"><div class="bal-header-row"><span class="bal-title">TITULO: ${headerLabel}</span>`;
             if (!grupo.items || grupo.items.length === 0) {
                 html += `<button style="margin-left:auto; padding:6px 12px; font-size:11px; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="confirmDeleteGroup('${safeTitle}', '${tipo === 'crudo' ? 'pure' : 'htr'}')">Eliminar bloque vacAo</button>`;
             }
-            html += `</div><table><thead><tr><th class="th-base">ORDEN</th><th class="th-base">CLIENTE</th><th class="th-base">TEMPORADA</th><th class="th-base">RSV</th><th class="th-base">OP</th><th class="th-base">HILADO</th><th class="th-base">NE</th><th class="th-base">TIPO</th><th class="th-base">KG SOLICITADOS</th></tr></thead><tbody>`;
+            html += `</div><table><thead><tr><th class="th-base">ORDEN</th><th class="th-base">CLIENTE</th><th class="th-base">TEMPORADA</th><th class="th-base">RSV</th><th class="th-base">OP</th><th class="th-base">MOVER</th><th class="th-base">HILADO</th><th class="th-base">NE</th><th class="th-base">TIPO</th><th class="th-base">KG SOLICITADOS</th></tr></thead><tbody>`;
             if (!grupo.items || grupo.items.length === 0) {
-                html += `<tr ondragover="allowDrop(event)" ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDropToTitle(event, '${safeTitle}', ${isMezGroup ? 'true' : 'false'}, ${tipo === 'htr' ? 'true' : 'false'})"><td colspan="9" style="text-align:center; padding:30px; color:#999;"><em>Este bloque estA vacAo</em></td></tr>`;
+                html += `<tr><td colspan="10" style="text-align:center; padding:30px; color:#999;"><em>Este bloque estA vacAo</em></td></tr>`;
             }
             grupo.items.forEach(r => {
-                const dragAttrs = `draggable="true" ondragstart="handleDragStart(event, '${r._id}')" ondrop="handleDrop(event, '${r._id}')" ondragover="allowDrop(event)"`;
                 const neVal = getNeFromItem(r);
                 const neDisplay = (neVal !== null && !isNaN(neVal)) ? Math.round(neVal) : '-';
-                html += `<tr ${dragAttrs}><td>${r.orden || '-'}</td><td>${r.cliente || '-'}</td><td>${r.temporada || '-'}</td><td>${r.rsv || ''}</td><td>${r.op || ''}</td><td class="hilado-cell">${r.hilado || '-'}</td><td style="font-weight:600;">${neDisplay}</td><td>${r.tipo || ''}</td><td style="font-weight:600;">${fmtDecimal(r.kg)}</td></tr>`;
+                const moveBtn = `<button class="row-move-btn" title="Mover hilado" onclick="openMoveTitleModal('${r._id}', ${tipo === 'htr' ? 'true' : 'false'})">&#x21C4;</button>`;
+                html += `<tr><td>${r.orden || '-'}</td><td>${r.cliente || '-'}</td><td>${r.temporada || '-'}</td><td>${r.rsv || ''}</td><td>${r.op || ''}</td><td class="move-cell">${moveBtn}</td><td class="hilado-cell">${r.hilado || '-'}</td><td style="font-weight:600;">${neDisplay}</td><td>${r.tipo || ''}</td><td style="font-weight:600;">${fmtDecimal(r.kg)}</td></tr>`;
             });
             // Cambiar etiqueta inferior de SUBTOTAL a TOTAL para mantener consistencia con Balance Material
-            html += `<tr class="bal-subtotal"><td colspan="8" style="text-align:right;">TOTAL ${titulo}:</td><td>${fmt(grupo.totalKg)}</td></tr></tbody></table></div>`;
+            html += `<tr class="bal-subtotal"><td colspan="9" style="text-align:right;">TOTAL ${titulo}:</td><td>${fmt(grupo.totalKg)}</td></tr></tbody></table></div>`;
         });
         return html;
     }
