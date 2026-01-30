@@ -129,7 +129,7 @@
             if (type !== 'summary') GLOBAL_DATA.currentTab = type;
             renderBalanceModule();
         } else if (modulePrefix === 'bal2') {
-            // Sub-tabs para el nuevo mAdulo 'Balance' (mod-balance2)
+            // Sub-tabs para el nuevo modulo 'Balance' (mod-balance2)
             document.getElementById('bal2-crudo-view').style.display = 'none';
             document.getElementById('bal2-htr-view').style.display = 'none';
             document.getElementById(`bal2-${type}-view`).style.display = 'block';
@@ -290,7 +290,7 @@
             nuevoOriginal: [], htrOriginal: [], // Guardar orden original para PCP
             excelTotals: { crudo: null, htr: null, global: null, ne: null },
             filterStatus: { crudoFiltered: false, htrFiltered: false },
-            // Mantener lista de bloques vacAos que el usuario decidiA conservar
+            // Mantener lista de bloques vacios que el usuario decidio conservar
             emptyGroups: { crudo: [], htr: [] },
             currentTab: 'crudo'
         };
@@ -445,7 +445,7 @@
                     let item = {
                         _id: generateId(),
                         group: groupKey,
-                        // TAtulo (ej: "30/1") extraAdo del hilado para mAdulo TAtulo
+                        // Titulo (ej: "30/1") extraido del hilado para modulo Titulo
                         titulo: (rawHilado.match(/^\s*(\d+\/\d+)/) ? rawHilado.match(/^\s*(\d+\/\d+)/)[1] : 'SIN TITULO'),
                         isMezcla: isMezcla,
                         orden: row[idxOrden],
@@ -680,7 +680,7 @@
         } catch(e) { console.error('recalcItemFields', e); }
     }
 
-    // Normalizar tAtulos para agrupamiento en mAdulo TAtulo
+    // Normalizar titulos para agrupamiento en modulo Titulo
     function normalizeTitulo(t) {
         if (!t) return 'SIN TITULO';
         const s = String(t).toUpperCase().trim();
@@ -710,11 +710,11 @@
             // 50 IV -> 44
             if (/^\s*50\s*(?:\/\s*1)?[^\n\r]*\bIV\b/i.test(s)) return 44;
 
-            // Intentar extraer formato 'NN/NN' -> devolver primer nAmero
+            // Intentar extraer formato 'NN/NN' -> devolver primer numero
             const m = s.match(/(\d+)\s*\/\s*\d+/);
             if (m) return parseInt(m[1], 10);
 
-            // Si no hay '/', tomar primer nAmero de 1 a 3 dAgitos
+            // Si no hay '/', tomar primer numero de 1 a 3 digitos
             const m2 = s.match(/(\d{1,3})/);
             if (m2) return parseInt(m2[1], 10);
         } catch (e) { console.error('getNeFromItem', e); }
@@ -751,15 +751,23 @@
         const hasRows = rows.length > 0;
         // Detectar si hay COP ORGANICO LLL entre las filas OTROS (solo crudo)
         const groupHasCopOrgLll = (!isHtr) && rows.some(r => (getClientCert((r.cliente||'').toString().trim()) === 'OCS') && /COP\s*(ORGANICO|ORG|ORGANIC)/i.test(r.hilado || ''));
-        // Calcular nAmero de columnas del encabezado para usar en colspan cuando estA vacAo
+        // Calcular numero de columnas del encabezado para usar en colspan cuando esta vacio
         let baseCols = 10; // ORDEN, CLIENTE, TEMP, RSV, OP, HILADO, COLOR, KG SOL., KG REQ., QQ REQ.
         if (showMover) baseCols += 1; // columna MOVER
         if (groupHasCopOrgLll) baseCols += 2; // columnas adicionales para ORGANICO/TANGUIS
 
         const tableType = isHtr ? 'htr' : 'pure';
+        const headerActions = [];
+        if (typeof getGroupMermaValue === 'function' && typeof formatPctInput === 'function') {
+            const mermaVal = formatPctInput(getGroupMermaValue(isHtr, 'OTROS'));
+            headerActions.push(`<div class="bal-header-merma"><span class="mix-tag">M%</span><input class="mix-input" type="number" step="0.1" min="0" max="95" value="${mermaVal}" onchange="handleGroupMermaInput('${btoa('OTROS')}', ${isHtr ? 'true' : 'false'}, this.value)"></div>`);
+        }
         let html = `<div class="table-wrap"><div class="bal-header-row"><span class="bal-title">MATERIAL: OTROS</span>`;
         if (!hasRows) {
-            html += `<button style="margin-left:auto; padding:6px 12px; font-size:11px; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="confirmDeleteGroup('OTROS', '${tableType}')">Eliminar bloque vacAo</button>`;
+            headerActions.push(`<button style="padding:6px 12px; font-size:11px; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="confirmDeleteGroup('OTROS', '${tableType}')">Eliminar bloque vacio</button>`);
+        }
+        if (headerActions.length) {
+            html += `<div class="bal-header-actions">${headerActions.join('')}</div>`;
         }
         html += `</div>`;
         html += `<table><thead><tr>
@@ -783,7 +791,7 @@
         } else {
             rows.forEach(r => {
                 const kgSol = round0(r.kg);
-                const factor = isHtr ? 0.60 : 0.65;
+                const factor = (typeof getGroupFactor === 'function') ? getGroupFactor(isHtr, r.group || 'OTROS') : (isHtr ? 0.60 : 0.65);
                 const kgReq = round0(kgSol / factor);
                 const isAlgodon = isAlgodonText((r.hilado || r.group || ''));
                 const qqReq = isAlgodon ? round0(kgReq / 46) : null;
@@ -825,7 +833,7 @@
             
             rows.forEach(r => {
                 const kgSol = round0(r.kg);
-                const factor = isHtr ? 0.60 : 0.65;
+                const factor = (typeof getGroupFactor === 'function') ? getGroupFactor(isHtr, r.group || 'OTROS') : (isHtr ? 0.60 : 0.65);
                 const kgReq = round0(kgSol / factor);
                 const isAlgodon = isAlgodonText((r.hilado || r.group || ''));
                 const qqReq = isAlgodon ? round0(kgReq / 46) : null;
