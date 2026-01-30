@@ -7,7 +7,8 @@
         emptyGroups: { crudo: [], htr: [] },
         // Balance2 datasets (opcional)
         balance2: { datos: [], produccion: [], solverRows: [] },
-        currentTab: 'crudo'
+        currentTab: 'crudo',
+        mixConfig: {}
     };
 
     // Mapeo cliente -> certificaciAn por defecto (puedes extenderlo)
@@ -96,7 +97,17 @@
         else if(modId === 'mod-titulo') btns[2].classList.add('active');
         else if(modId === 'mod-balance2') btns[3].classList.add('active');
 
-        if(modId === 'mod-titulo') renderTituloModule();
+        if(modId === 'mod-titulo') {
+            const container = document.querySelector('#mod-titulo .sub-tabs');
+            const activeBtn = container ? container.querySelector('button.active') : null;
+            let type = 'crudo';
+            if (activeBtn) {
+                if (activeBtn.classList.contains('t-htr')) type = 'htr';
+                else if (activeBtn.classList.contains('t-mezcla')) type = 'mezcla';
+                else type = 'crudo';
+            }
+            switchSubTab('tit', type);
+        }
         if(modId === 'mod-balance2') renderBalance2Module && renderBalance2Module();
     }
 
@@ -109,13 +120,13 @@
             container.querySelectorAll('button').forEach(b => b.classList.remove('active'));
             container.querySelector(`.t-${type}`).classList.add('active');
         } else if (modulePrefix === 'bal') {
-            document.getElementById('bal-crudo-view').style.display = 'none';
-            document.getElementById('bal-htr-view').style.display = 'none';
-            document.getElementById(`bal-${type}-view`).style.display = 'block';
+            ['bal-crudo-view','bal-htr-view','bal-summary-view'].forEach(id => { const el = document.getElementById(id); if(el) el.style.display = 'none'; });
+            const target = document.getElementById(`bal-${type}-view`);
+            if (target) target.style.display = 'block';
             const container = document.querySelector('#mod-balance .sub-tabs');
             container.querySelectorAll('button').forEach(b => b.classList.remove('active'));
             container.querySelector(`.t-${type}`).classList.add('active');
-            GLOBAL_DATA.currentTab = type;
+            if (type !== 'summary') GLOBAL_DATA.currentTab = type;
             renderBalanceModule();
         } else if (modulePrefix === 'bal2') {
             // Sub-tabs para el nuevo mAdulo 'Balance' (mod-balance2)
@@ -146,9 +157,12 @@
         document.querySelectorAll('.nested-btn').forEach(el => el.classList.remove('active'));
         document.getElementById(`inner-${innerType}-view`).classList.add('active');
         const btns = document.querySelectorAll('.nested-btn');
-        if(innerType === 'pure') btns[0].classList.add('active');
-        else if(innerType === 'mix') btns[1].classList.add('active');
-        else if(innerType === 'summary') btns[2].classList.add('active');
+        if(innerType === 'pure') btns[0] && btns[0].classList.add('active');
+        else if(innerType === 'mix') btns[1] && btns[1].classList.add('active');
+        else if(innerType === 'htr') btns[2] && btns[2].classList.add('active');
+        else if(innerType === 'summary') btns[3] && btns[3].classList.add('active');
+        if (innerType === 'htr') GLOBAL_DATA.currentTab = 'htr';
+        else if (innerType === 'pure' || innerType === 'mix' || innerType === 'summary') GLOBAL_DATA.currentTab = 'crudo';
     }
 
     document.getElementById('fileUpload').addEventListener('change', handleFile, false);
@@ -730,13 +744,16 @@
         return /\b(ALGODON|PIMA|TANGUIS|UPLAND|COP|ORGANICO|OCS|GOTS|BCI|USTCP)\b/.test(norm);
     }
 
-    function renderOtrosBlock(isHtr, allRows) {
+    function renderOtrosBlock(isHtr, allRows, enableDrag, showMove) {
+        const allowDrag = (typeof enableDrag === 'undefined') ? true : !!enableDrag;
+        const showMover = (typeof showMove === 'undefined') ? false : !!showMove;
         const rows = (allRows || []).filter(r => (r.group || '').toString().toUpperCase() === 'OTROS');
         const hasRows = rows.length > 0;
         // Detectar si hay COP ORGANICO LLL entre las filas OTROS (solo crudo)
         const groupHasCopOrgLll = (!isHtr) && rows.some(r => (getClientCert((r.cliente||'').toString().trim()) === 'OCS') && /COP\s*(ORGANICO|ORG|ORGANIC)/i.test(r.hilado || ''));
         // Calcular nAmero de columnas del encabezado para usar en colspan cuando estA vacAo
         let baseCols = 10; // ORDEN, CLIENTE, TEMP, RSV, OP, HILADO, COLOR, KG SOL., KG REQ., QQ REQ.
+        if (showMover) baseCols += 1; // columna MOVER
         if (groupHasCopOrgLll) baseCols += 2; // columnas adicionales para ORGANICO/TANGUIS
 
         const tableType = isHtr ? 'htr' : 'pure';
@@ -746,8 +763,9 @@
         }
         html += `</div>`;
         html += `<table><thead><tr>
-                    <th class="th-base">ORDEN</th><th class="th-base">CLIENTE</th><th class="th-base">TEMP</th><th class="th-base">RSV</th><th class="th-base">OP</th>
-                    <th class="th-base">HILADO</th><th class="th-base">COLOR</th>
+                    <th class="th-base">ORDEN</th><th class="th-base">CLIENTE</th><th class="th-base">TEMP</th><th class="th-base">RSV</th><th class="th-base">OP</th>`;
+        if (showMover) html += `<th class="th-base">MOVER</th>`;
+        html += `<th class="th-base">HILADO</th><th class="th-base">COLOR</th>
                     <th class="th-base">KG SOL.</th><th class="th-base">KG REQ.</th><th class="th-base">QQ REQ.</th>`;
         if (groupHasCopOrgLll) {
             html += `<th class="th-comp-2">QQ REQ ORGANICO 80%</th><th class="th-comp-1">QQ REQ TANGUIS 20%</th>`;
@@ -755,9 +773,13 @@
         html += `</tr></thead><tbody>`;
 
         if (!hasRows) {
-            html += `<tr ondragover="allowDrop(event)" ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDropToOtros(event)">
-                        <td colspan="${baseCols}"><div class="otros-drop-hint">Arrastra aquA filas para asignarlas a OTROS</div></td>
-                    </tr>`;
+            if (allowDrag) {
+                html += `<tr ondragover="allowDrop(event)" ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDropToOtros(event)">
+                            <td colspan="${baseCols}"><div class="otros-drop-hint">Arrastra aquA filas para asignarlas a OTROS</div></td>
+                        </tr>`;
+            } else {
+                html += `<tr><td colspan="${baseCols}"><div class="otros-drop-hint">Sin filas en OTROS</div></td></tr>`;
+            }
         } else {
             rows.forEach(r => {
                 const kgSol = round0(r.kg);
@@ -765,8 +787,9 @@
                 const kgReq = round0(kgSol / factor);
                 const isAlgodon = isAlgodonText((r.hilado || r.group || ''));
                 const qqReq = isAlgodon ? round0(kgReq / 46) : null;
-                const dragAttrs = `draggable="true" ondragstart="handleDragStart(event, '${r._id}')" ondrop="handleDrop(event, '${r._id}')" ondragover="allowDrop(event)"`;
+                const dragAttrs = allowDrag ? `draggable="true" ondragstart="handleDragStart(event, '${r._id}')" ondrop="handleDrop(event, '${r._id}')" ondragover="allowDrop(event)"` : '';
                 const colorText = r.colorText || '-';
+                const moveBtn = showMover ? `<button class="row-move-btn" title="Mover hilado" onclick="openMoveRowModal('${r._id}', ${isHtr ? 'true' : 'false'})">&#x21C4;</button>` : '';
 
                 const cli = (r.cliente || '').toString().trim().toUpperCase();
                 const isCopOrgLll = (!isHtr) && (getClientCert(cli) === 'OCS') && /COP\s*(?:ORGANICO|ORG|ORGANIC)/i.test(r.hilado || '');
@@ -778,8 +801,9 @@
                 }
 
                 html += `<tr ${dragAttrs}>
-                    <td>${r.orden || '-'}</td><td>${r.cliente || '-'}</td><td>${r.temporada || '-'}</td><td>${r.rsv || ''}</td><td>${r.op || ''}</td>
-                    <td class="hilado-cell">${r.hilado || '-'}</td><td style="font-size:10px;">${colorText}</td>
+                    <td>${r.orden || '-'}</td><td>${r.cliente || '-'}</td><td>${r.temporada || '-'}</td><td>${r.rsv || ''}</td><td>${r.op || ''}</td>`;
+                if (showMover) html += `<td class="move-cell">${moveBtn}</td>`;
+                html += `<td class="hilado-cell">${r.hilado || '-'}</td><td style="font-size:10px;">${colorText}</td>
                     <td>${fmtDecimal(kgSol)}</td>
                     <td style="background:#f8fafc; font-weight:bold;">${fmtDecimal(kgReq)}</td>
                     <td style="background:#f0f9ff;">${fmtDecimal(qqReq)}</td>`;
@@ -821,7 +845,8 @@
             });
             
             const totalQQDisplay = totalQQHas ? fmt(totalQQReq) : '-';
-            html += `<tr class="bal-subtotal"><td colspan="7" style="text-align:right;">TOTAL OTROS:</td><td>${fmt(totalKgSol)}</td><td>${fmt(totalKgReq)}</td><td>${totalQQDisplay}</td>`;
+            const totalColspan = showMover ? 8 : 7;
+            html += `<tr class="bal-subtotal"><td colspan="${totalColspan}" style="text-align:right;">TOTAL OTROS:</td><td>${fmt(totalKgSol)}</td><td>${fmt(totalKgReq)}</td><td>${totalQQDisplay}</td>`;
             if (groupHasCopOrgLll) html += `<td>${fmt(totalQQOrg)}</td><td>${fmt(totalQQTan)}</td>`;
             html += `</tr>`;
         }
