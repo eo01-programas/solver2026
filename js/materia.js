@@ -30,9 +30,8 @@ function renderBalanceModule() {
         const mixGroups = groupedCrudo.filter(g => g.isMezcla && ((g.name||'').toString().toUpperCase() !== 'OTROS'));
 
         // Renderizar OTROS usando el array completo para que no desaparezcan al filtrar por highlights
-        document.getElementById('bal-table-pure').innerHTML = generateBalanceGroupTable(pureGroups, 'pure', false) + renderOtrosBlock(false, GLOBAL_DATA.nuevo.filter(r => !r.isMezcla));
-        document.getElementById('bal-table-mix').innerHTML = generateBalanceGroupTable(mixGroups, 'mix', false) + renderOtrosBlock(false, activeCrudo.filter(r => r.isMezcla));
-        document.getElementById('bal-summary-area').innerHTML = generateSummaryTable(groupedCrudo, false);
+        document.getElementById('bal-table-pure').innerHTML = generateBalanceGroupTable(pureGroups, 'pure', false) + renderOtrosBlock(false, GLOBAL_DATA.nuevo.filter(r => !r.isMezcla), false, true);
+        document.getElementById('bal-table-mix').innerHTML = generateBalanceGroupTable(mixGroups, 'mix', false) + renderOtrosBlock(false, activeCrudo.filter(r => r.isMezcla), false, true);
 
         const groupedHtr = getGroupsFromData(activeHtr);
         // Insertar placeholders de bloques vacAos (htr) si existen
@@ -45,9 +44,37 @@ function renderBalanceModule() {
         }
         const groupedHtrForTable = groupedHtr.filter(g => ((g.name||'').toString().toUpperCase() !== 'OTROS'));
         // Para HTR, renderizar OTROS desde el array completo HTR
-        document.getElementById('bal-table-htr').innerHTML = generateBalanceGroupTable(groupedHtrForTable, 'htr', true) + renderOtrosBlock(true, GLOBAL_DATA.htr);
-        // El resumen HTR debe considerar solo los grupos HTR (excluir OTROS)
-        document.getElementById('bal-htr-summary-area').innerHTML = generateSummaryTable(groupedHtrForTable, true);
+        document.getElementById('bal-table-htr').innerHTML = generateBalanceGroupTable(groupedHtrForTable, 'htr', true) + renderOtrosBlock(true, GLOBAL_DATA.htr, false, true);
+
+        const crudoIds = new Set((GLOBAL_DATA.nuevo || []).map(r => r._id));
+        const htrIds = new Set((GLOBAL_DATA.htr || []).map(r => r._id));
+        const summaryCrudoGroups = filterGroupsByIds(groupedCrudo, crudoIds);
+        const summaryHtrGroups = filterGroupsByIds(groupedHtrForTable, htrIds);
+
+        const summaryBlocks = [];
+        const summaryCrudo = generateSummaryTable(summaryCrudoGroups, false, {
+            title: 'Resumen de totales',
+            subtitle: 'Kg requerido · Crudos + Mezclas',
+            isCrudo: true
+        });
+        if (summaryCrudo) summaryBlocks.push(`<div class="summary-block">${summaryCrudo}</div>`);
+
+        const summaryHtr = generateSummaryTable(summaryHtrGroups, true, {
+            title: 'Resumen de totales',
+            subtitle: 'Kg requerido · HTR',
+            isCrudo: false
+        });
+        if (summaryHtr) summaryBlocks.push(`<div class="summary-block">${summaryHtr}</div>`);
+
+        const summaryGlobal = generateSummaryTableCombined(summaryCrudoGroups, summaryHtrGroups, {
+            title: 'Resumen de totales',
+            subtitle: 'Kg requerido · Crudos + Mezclas + HTR'
+        });
+        if (summaryGlobal) summaryBlocks.push(`<div class="summary-block">${summaryGlobal}</div>`);
+
+        document.getElementById('bal-summary-area').innerHTML = summaryBlocks.join('');
+        // El resumen HTR se muestra ahora en RESUMEN TOTALES
+        document.getElementById('bal-htr-summary-area').innerHTML = '';
 
         updateFooterTotals();
         if (typeof applyTableFilters === 'function') applyTableFilters();
@@ -114,7 +141,83 @@ function renderBalanceModule() {
         return Array.from(groupsMap.values());
     }
 
-    function parseMixComposition(hiladoStr, kgSolicitado) {
+    function filterGroupsByIds(groups, allowedIds) {
+        if (!groups || !allowedIds) return [];
+        return groups
+            .map(g => {
+                const items = (g.items || []).filter(it => it && allowedIds.has(it._id));
+                return { ...g, items: items, totalKg: items.reduce((s, it) => s + (it.kg || 0), 0) };
+            })
+            .filter(g => (g.items && g.items.length > 0));
+    }
+
+    function normalizeMixKey(s) {
+        if (!s) return '';
+        return String(s)
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toUpperCase()
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    function getMixConfigStore() {
+        if (!GLOBAL_DATA.mixConfig) GLOBAL_DATA.mixConfig = {};
+        return GLOBAL_DATA.mixConfig;
+    }
+
+    function getMixOverride(groupName, componentName) {
+        if (!groupName || !componentName) return null;
+        const store = getMixConfigStore();
+        const gKey = normalizeMixKey(groupName);
+        const cKey = normalizeMixKey(componentName);
+        if (store[gKey] && store[gKey][cKey]) return store[gKey][cKey];
+        return null;
+    }
+
+    function setMixOverride(groupName, componentName, field, value) {
+        if (!groupName || !componentName || !field) return;
+        const store = getMixConfigStore();
+        const gKey = normalizeMixKey(groupName);
+        const cKey = normalizeMixKey(componentName);
+        if (!store[gKey]) store[gKey] = {};
+        if (!store[gKey][cKey]) store[gKey][cKey] = {};
+        store[gKey][cKey][field] = value;
+    }
+
+    function clampPct(value, max) {
+        if (isNaN(value)) return null;
+        const limit = (typeof max === 'number') ? max : 1;
+        return Math.max(0, Math.min(value, limit));
+    }
+
+    function formatPctInput(value) {
+        if (value === null || value === undefined || isNaN(value)) return '';
+        return (Math.round(value * 1000) / 10).toString();
+    }
+
+    function getDefaultMerma(isHtr, idx) {
+        if (idx === 0) return 0.40;
+        return 0.15;
+    }
+
+    function handleMixConfigInput(encodedGroup, encodedComp, field, rawValue) {
+        try {
+            const groupName = atob(encodedGroup);
+            const compName = atob(encodedComp);
+            const cleaned = String(rawValue || '').replace(',', '.');
+            const num = parseFloat(cleaned);
+            if (isNaN(num)) return;
+            const pctVal = clampPct(num / 100, field === 'merma' ? 0.95 : 1);
+            if (pctVal === null) return;
+            setMixOverride(groupName, compName, field, pctVal);
+            renderBalanceModule();
+        } catch(e) { console.error('handleMixConfigInput', e); }
+    }
+
+    function parseMixComposition(hiladoStr, kgSolicitado, options) {
+        const opts = options || {};
+        const groupNameOverride = opts.groupName;
         // Detectar porcentajes: acepta "(75/25%)" o "75/25%"
         let pctStr = '';
             const pctMatch1 = hiladoStr.match(/\((\d{1,3}(?:\/\d{1,3})+)\s*%\)/);
@@ -139,7 +242,7 @@ function renderBalanceModule() {
         const pcts = pctStr.split('/').map(n => parseFloat(n) / 100);
 
         // Remover el bloque de porcentajes y el tAtulo inicial (ej: "40/1")
-        let cleanName = hiladoStr.replace(/\(!\d{1,3}(?:\/\d{1,3})+\s*%!\)!/g, "").trim();
+        let cleanName = hiladoStr.replace(/\(\d{1,3}(?:\/\d{1,3})+\s*%\)/g, "").trim();
         cleanName = cleanName.replace(/^\d+\/\d+\s+/, "").trim();
 
         // Parsear nombres: si contiene "/", dividir por eso. Sino, identificar materiales y agrupar
@@ -211,22 +314,35 @@ function renderBalanceModule() {
             components.unshift(prio);
         }
 
-        // Calcular KG por componente: primer componente -> /0.65, siguientes -> /0.85
+        const groupKey = groupNameOverride || getCanonicalGroupName(cleanName.toUpperCase());
+        // Calcular KG por componente usando merma configurable
         let finalComponents = [];
         components.forEach((c, idx) => {
-            const factor = (idx === 0) ? 0.65 : 0.85;
-            const kgSol = round0(kgSolicitado * c.pct);
-            const kg = round0((kgSolicitado * c.pct) / factor);
+            const override = getMixOverride(groupKey, c.name);
+            let pct = c.pct;
+            if (override && typeof override.pct === 'number') pct = override.pct;
+            pct = clampPct(pct, 1);
+            if (pct === null) pct = 0;
+            const mermaDefault = getDefaultMerma(false, idx);
+            let merma = mermaDefault;
+            if (override && typeof override.merma === 'number') merma = override.merma;
+            merma = clampPct(merma, 0.95);
+            if (merma === null) merma = 0;
+            const factor = Math.max(0.01, 1 - merma);
+            const kgSol = round0(kgSolicitado * pct);
+            const kg = round0(kgSol / factor);
             const isAlgodon = isAlgodonMixComponent(c.name);
             const qq = isAlgodon ? round0(kg / 46) : null;
-            finalComponents.push({ name: c.name, kg: kg, qq: qq, kgSol: kgSol });
+            finalComponents.push({ name: c.name, kg: kg, qq: qq, kgSol: kgSol, pct: pct, merma: merma });
         });
 
         return finalComponents;
     }
 
     // VersiAn HTR de parseMixComposition: usa 0.60 en lugar de 0.65 para primer componente
-    function parseMixCompositionHtr(hiladoStr, kgSolicitado) {
+    function parseMixCompositionHtr(hiladoStr, kgSolicitado, options) {
+        const opts = options || {};
+        const groupNameOverride = opts.groupName;
         // Detectar porcentajes
         let pctStr = '';
             const pctMatch1 = hiladoStr.match(/\((\d{1,3}(?:\/\d{1,3})+)\s*%\)/);
@@ -244,7 +360,7 @@ function renderBalanceModule() {
         }
 
         const pcts = pctStr.split('/').map(n => parseFloat(n) / 100);
-        let cleanName = hiladoStr.replace(/\(!\d{1,3}(?:\/\d{1,3})+\s*%!\)!/g, "").trim();
+        let cleanName = hiladoStr.replace(/\(\d{1,3}(?:\/\d{1,3})+\s*%\)/g, "").trim();
         cleanName = cleanName.replace(/^\d+\/\d+\s+/, "").trim();
         
         // Parsear nombres
@@ -316,28 +432,39 @@ function renderBalanceModule() {
             components.unshift(prio);
         }
 
-        // Calcular: primer componente -> /0.60, siguientes -> /0.85
+        const groupKey = groupNameOverride || getCanonicalGroupName(cleanName.toUpperCase());
+        // Calcular: usar merma configurable para HTR
         let finalComponents = [];
         components.forEach((c, idx) => {
-            const factor = (idx === 0) ? 0.60 : 0.85;
-            const kgSol = round0(kgSolicitado * c.pct);
-            const kg = round0((kgSolicitado * c.pct) / factor);
+            const override = getMixOverride(groupKey, c.name);
+            let pct = c.pct;
+            if (override && typeof override.pct === 'number') pct = override.pct;
+            pct = clampPct(pct, 1);
+            if (pct === null) pct = 0;
+            const mermaDefault = getDefaultMerma(true, idx);
+            let merma = mermaDefault;
+            if (override && typeof override.merma === 'number') merma = override.merma;
+            merma = clampPct(merma, 0.95);
+            if (merma === null) merma = 0;
+            const factor = Math.max(0.01, 1 - merma);
+            const kgSol = round0(kgSolicitado * pct);
+            const kg = round0(kgSol / factor);
             const isAlgodon = isAlgodonMixComponent(c.name);
             const qq = isAlgodon ? round0(kg / 46) : null;
-            finalComponents.push({ name: c.name, kg: kg, qq: qq, kgSol: kgSol });
+            finalComponents.push({ name: c.name, kg: kg, qq: qq, kgSol: kgSol, pct: pct, merma: merma });
         });
 
         return finalComponents;
     }
 
-    function getMixHeaders(sampleStr) {
-        const comps = parseMixComposition(sampleStr, 1000);
+    function getMixHeaders(sampleStr, isHtr, groupName) {
+        const comps = isHtr ? parseMixCompositionHtr(sampleStr, 1000, { groupName: groupName }) : parseMixComposition(sampleStr, 1000, { groupName: groupName });
 
         // Encabezados: usar directamente el nombre del componente ya procesado por parseMixComposition
         // No aplicar limpiezas adicionales porque ya estA limpio
         return comps.map(c => {
             let name = String(c.name).toUpperCase().trim();
-            return name || "COMP";
+            return { name: name || "COMP", pct: c.pct, merma: c.merma };
         });
     }
 
@@ -439,6 +566,13 @@ function renderBalanceModule() {
             let mixTotalsQQ = [];
             let mixTotalsQQApplicable = [];
             let headerNames = [];
+            let headerComps = [];
+            const groupHasMix = (g.isMezcla || (g.items || []).some(r => {
+                if (r && r.isMezcla) return true;
+                const hiladoStr = (r && r.hilado) ? String(r.hilado).toUpperCase() : '';
+                return /\d{1,3}\/\d{1,3}\s*%/.test(hiladoStr);
+            }));
+            const useMixLayout = (tableType === 'mix') || (tableType === 'htr' && groupHasMix);
 
             // Detectar si el grupo contiene al menos un COP ORGANICO del cliente LLL (solo en crudo)
             const groupHasCopOrgLll = (!isHtr) && (g.items || []).some(r => {
@@ -446,10 +580,11 @@ function renderBalanceModule() {
                 return getClientCert(cli) === 'OCS' && /COP\s*(?:ORGANICO|ORG|ORGANIC)/i.test(r.hilado || '');
             });
 
-            if (tableType === 'mix') {
+            if (useMixLayout) {
                 if (g.items.length > 0) {
                     const firstYarn = g.items[0].hilado || "";
-                    headerNames = getMixHeaders(firstYarn);
+                    headerComps = getMixHeaders(firstYarn, isHtr, g.name);
+                    headerNames = headerComps.map(c => c.name);
                     mixTotalsKG = new Array(headerNames.length).fill(0);
                     mixTotalsQQ = new Array(headerNames.length).fill(0);
                     mixTotalsQQApplicable = headerNames.map(h => isAlgodonMixComponent(h));
@@ -466,37 +601,55 @@ function renderBalanceModule() {
             html += `</div>`;
             
             let colCount = 0;
-            if (tableType === 'mix') {
+            if (useMixLayout) {
                 // Columns: ORDEN, CLIENTE, TEMP, RSV, OP, HILADO, COLOR, NE, KG SOL., then 2 columns per mix component
                 html += `<table><thead><tr>
-                    <th class="th-base">ORDEN</th><th class="th-base">CLIENTE</th><th class="th-base">TEMP</th><th class="th-base">RSV</th><th class="th-base">OP</th>
+                    <th class="th-base">ORDEN</th><th class="th-base">CLIENTE</th><th class="th-base">TEMP</th><th class="th-base">RSV</th><th class="th-base">OP</th><th class="th-base">MOVER</th>
                     <th class="th-base">HILADO</th><th class="th-base">COLOR</th><th class="th-base">NE</th><th class="th-base">KG SOL.</th>`;
-                headerNames.forEach((hName, idx) => {
+                headerComps.forEach((comp, idx) => {
+                    const hName = comp.name;
+                    const pctVal = formatPctInput(comp.pct);
+                    const mermaVal = formatPctInput(comp.merma);
+                    const groupEnc = btoa(g.name || '');
+                    const compEnc = btoa(hName || '');
                     let thClass = `th-comp-${idx % 3}`;
-                    html += `<th class="${thClass}">${hName}</th>`;
+                    html += `<th class="${thClass}">
+                                <div class="mix-head">
+                                    <div class="mix-title">${hName}</div>
+                                    <div class="mix-meta">
+                                        <div class="mix-field">
+                                            <span class="mix-tag">P%</span>
+                                            <input class="mix-input" type="number" step="0.1" min="0" max="100" value="${pctVal}" onchange="handleMixConfigInput('${groupEnc}', '${compEnc}', 'pct', this.value)">
+                                        </div>
+                                        <div class="mix-field">
+                                            <span class="mix-tag">M%</span>
+                                            <input class="mix-input" type="number" step="0.1" min="0" max="95" value="${mermaVal}" onchange="handleMixConfigInput('${groupEnc}', '${compEnc}', 'merma', this.value)">
+                                        </div>
+                                    </div>
+                                </div>
+                            </th>`;
                     if (mixTotalsQQApplicable[idx]) {
                         html += `<th class="${thClass}">${hName} QQ</th>`;
                     }
                 });
-                colCount = 9 + headerNames.length + mixTotalsQQApplicable.filter(Boolean).length;
+                colCount = 10 + headerNames.length + mixTotalsQQApplicable.filter(Boolean).length;
                 html += `</tr></thead><tbody>`;
             } else {
                 // Columns: ORDEN, CLIENTE, TEMP, RSV, OP, HILADO, COLOR, NE, KG SOL., KG REQ., QQ REQ., (+ optional 2 for ORGANICO/TANGUIS)
                 html += `<table><thead><tr>
-                    <th class="th-base">ORDEN</th><th class="th-base">CLIENTE</th><th class="th-base">TEMP</th><th class="th-base">RSV</th><th class="th-base">OP</th>
+                    <th class="th-base">ORDEN</th><th class="th-base">CLIENTE</th><th class="th-base">TEMP</th><th class="th-base">RSV</th><th class="th-base">OP</th><th class="th-base">MOVER</th>
                     <th class="th-base">HILADO</th><th class="th-base">COLOR</th><th class="th-base">NE</th>
                     <th class="th-base">KG SOL.</th><th class="th-base">KG REQ.</th><th class="th-base">QQ REQ.</th>`;
                 if(groupHasCopOrgLll) {
                     html += `<th class="th-comp-2">QQ REQ ORGANICO 80%</th><th class="th-comp-1">QQ REQ TANGUIS 20%</th>`;
                 }
-                colCount = 11 + (groupHasCopOrgLll ? 2 : 0);
+                colCount = 12 + (groupHasCopOrgLll ? 2 : 0);
                 html += `</tr></thead><tbody>`;
             }
 
             // Si estA vacAo, mostrar mensaje
             if (g.items.length === 0) {
-                // Hacer que el bloque vacAo acepte drops para permitir regresar items desde OTROS
-                html += `<tr ondragover="allowDrop(event)" ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDropToGroup(event, '${safeGroupName}', ${g.isMezcla ? 'true' : 'false'}, ${isHtr ? 'true' : 'false'})"><td colspan="${colCount || 10}" style="text-align:center; padding:30px; color:#999;"><em>Este bloque estA vacAo</em></td></tr>`;
+                html += `<tr><td colspan="${colCount || 10}" style="text-align:center; padding:30px; color:#999;"><em>Este bloque estA vacAo</em></td></tr>`;
             }
 
             // Totales especiales para COP ORGANICO LLL
@@ -506,14 +659,14 @@ function renderBalanceModule() {
             g.items.forEach(r => {
                 const kgSol = round0(r.kg);
                 totalKgSol += kgSol;
-                const dragAttrs = `draggable="true" ondragstart="handleDragStart(event, '${r._id}')" ondrop="handleDrop(event, '${r._id}')" ondragover="allowDrop(event)"`;
                 const colorText = r.colorText || '-';
 
-                if (tableType === 'mix') {
-                    const comps = isHtr ? parseMixCompositionHtr(r.hilado || "", kgSol) : parseMixComposition(r.hilado || "", kgSol);
+                if (useMixLayout) {
+                    const comps = isHtr ? parseMixCompositionHtr(r.hilado || "", kgSol, { groupName: (r.group || g.name) }) : parseMixComposition(r.hilado || "", kgSol, { groupName: (r.group || g.name) });
                     const neVal = getNeFromItem(r);
-                    html += `<tr ${dragAttrs}>
-                        <td>${r.orden}</td><td>${r.cliente}</td><td>${r.temporada}</td><td>${r.rsv||''}</td><td>${r.op}</td>
+                    const moveBtn = `<button class="row-move-btn" title="Mover hilado" onclick="openMoveRowModal('${r._id}', ${isHtr ? 'true' : 'false'})">&#x21C4;</button>`;
+                    html += `<tr>
+                        <td>${r.orden}</td><td>${r.cliente}</td><td>${r.temporada}</td><td>${r.rsv||''}</td><td>${r.op}</td><td class="move-cell">${moveBtn}</td>
                         <td class="hilado-cell" style="font-size:11px;">${r.hilado}</td><td style="font-size:10px;">${colorText}</td>
                         <td style="font-weight:600;">${neVal ? fmt(Math.round(neVal)) : '-'}</td>
                         <td style="font-weight:bold;">${fmtDecimal(kgSol)}</td>`;
@@ -550,8 +703,9 @@ function renderBalanceModule() {
                     }
 
                     const neVal = getNeFromItem(r);
-                    html += `<tr ${dragAttrs}>
-                        <td>${r.orden}</td><td>${r.cliente}</td><td>${r.temporada}</td><td>${r.rsv || ''}</td><td>${r.op}</td>
+                    const moveBtn = `<button class="row-move-btn" title="Mover hilado" onclick="openMoveRowModal('${r._id}', ${isHtr ? 'true' : 'false'})">&#x21C4;</button>`;
+                    html += `<tr>
+                        <td>${r.orden}</td><td>${r.cliente}</td><td>${r.temporada}</td><td>${r.rsv || ''}</td><td>${r.op}</td><td class="move-cell">${moveBtn}</td>
                         <td class="hilado-cell">${r.hilado}</td><td style="font-size:10px;">${colorText}</td>
                         <td style="font-weight:600;">${neVal ? fmt(Math.round(neVal)) : '-'}</td>
                         <td>${fmtDecimal(kgSol)}</td>
@@ -563,11 +717,11 @@ function renderBalanceModule() {
             });
 
             if (g.items.length > 0) {
-                 if (tableType === 'mix') {
+                 if (useMixLayout) {
                      const groupNeVal = computeWeightedNe(g.items || []);
                      const groupNeDisplay = (groupNeVal !== null && !isNaN(groupNeVal)) ? fmt(Math.round(groupNeVal)) : '-';
                      // Para mix: poner TOTAL abarcando hasta COLOR, luego NE, luego KG SOL
-                     html += `<tr class="bal-subtotal"><td colspan="7" style="text-align:right;">TOTAL ${g.name}:</td><td>${groupNeDisplay}</td><td>${fmt(totalKgSol)}</td>`;
+                     html += `<tr class="bal-subtotal"><td colspan="8" style="text-align:right;">TOTAL ${g.name}:</td><td>${groupNeDisplay}</td><td>${fmt(totalKgSol)}</td>`;
                      mixTotalsKG.forEach((tk, i) => {
                          html += `<td>${fmt(tk)}</td>`;
                          if (mixTotalsQQApplicable[i]) {
@@ -582,7 +736,7 @@ function renderBalanceModule() {
                       // Calcular Ne del grupo
                       const groupNeVal = computeWeightedNe(g.items || []);
                       const groupNeDisplay = (groupNeVal !== null && !isNaN(groupNeVal)) ? fmt(Math.round(groupNeVal)) : '-';
-                      html += `<tr class="bal-subtotal"><td colspan="7" style="text-align:right;">TOTAL ${g.name}:</td><td>${groupNeDisplay}</td><td>${fmt(totalKgSol)}</td><td>${fmt(subKgReq)}</td><td>${fmt(subQQReq)}</td>`;
+                      html += `<tr class="bal-subtotal"><td colspan="8" style="text-align:right;">TOTAL ${g.name}:</td><td>${groupNeDisplay}</td><td>${fmt(totalKgSol)}</td><td>${fmt(subKgReq)}</td><td>${fmt(subQQReq)}</td>`;
                       if(groupHasCopOrgLll) html += `<td>${fmt(qqOrgTotal)}</td><td>${fmt(qqTanTotal)}</td>`;
                       html += `</tr>`;
                   }
@@ -676,7 +830,67 @@ function renderBalanceModule() {
         return Number.POSITIVE_INFINITY;
     }
 
-    function generateSummaryTable(groups, isHtr) {
+    function getSummaryOrderIndexCombined(name) {
+        const idxCrudo = getSummaryOrderIndex(name, false);
+        const idxHtr = getSummaryOrderIndex(name, true);
+        return Math.min(idxCrudo, idxHtr);
+    }
+
+    function buildSummaryHtml(rows, options) {
+        if (!rows || rows.length === 0) return '';
+        const opts = options || {};
+        const title = opts.title || 'Resumen de totales';
+        const subtitle = opts.subtitle || '';
+        const showAddBtn = opts.showAddBtn !== false;
+        const allowDetails = opts.allowDetails !== false;
+        const isCrudo = (typeof opts.isCrudo === 'boolean') ? opts.isCrudo : true;
+        const fmtIngresos = (n) => {
+            if (n === null || n === undefined) return '-';
+            const num = Number(n);
+            if (!isFinite(num)) return '-';
+            return num.toLocaleString('es-PE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+        };
+
+        const targetOtros = btoa('OTROS');
+        const addBtn = showAddBtn ? `<div style="margin-bottom:8px; text-align:right;"><button style="padding:6px 10px; background:#10b981; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="openAddComponentModal('${targetOtros}', ${isCrudo})">+ Agregar a OTROS</button></div>` : '';
+
+        const subHtml = subtitle ? `<div class="summary-sub">${subtitle}</div>` : '';
+        let html = `<div class="summary-head"><div class="summary-title">${title}</div>${subHtml}</div><div class="table-wrap">` + addBtn + `<table class="sum-table"><thead><tr><th>TOTAL</th><th>KG REQ</th><th>QQ REQ</th><th>Nro. Ingresos</th><th>Nro. Dias</th></tr></thead><tbody>`;
+
+        let grandKg = 0, grandQQ = 0, grandIngresos = 0, grandDias = 0;
+        let grandQQHas = false;
+        let grandIngresosHas = false;
+        let grandDiasHas = false;
+        rows.forEach(r => {
+            const encoded = btoa(r.name);
+            const nameHtml = allowDetails
+                ? `<span style="cursor:pointer;" onclick="showSummaryDetails('${encoded}', ${isCrudo})">${r.name}</span>`
+                : `<span>${r.name}</span>`;
+            html += `<tr><td style="text-align:left; font-weight:600;"> ${nameHtml}</td><td>${fmt(round0(r.kg))}</td><td>${fmt(r.qq)}</td><td>${fmtIngresos(r.ingresos)}</td><td>${fmtIngresos(r.dias)}</td></tr>`;
+            grandKg += r.kg;
+            if (r.qq !== null && r.qq !== undefined) {
+                grandQQ += r.qq;
+                grandQQHas = true;
+            }
+            if (r.ingresos !== null && r.ingresos !== undefined) {
+                grandIngresos += r.ingresos;
+                grandIngresosHas = true;
+            }
+            if (r.dias !== null && r.dias !== undefined) {
+                grandDias += r.dias;
+                grandDiasHas = true;
+            }
+        });
+
+        const totalQQDisplay = grandQQHas ? fmt(round0(grandQQ)) : '-';
+        const totalIngresosDisplay = grandIngresosHas ? fmtIngresos(grandIngresos) : '-';
+        const totalDiasDisplay = grandDiasHas ? fmtIngresos(grandDias) : '-';
+        html += `<tr class="total-row"><td style="text-align:right;">TOTAL GENERAL</td><td>${fmt(round0(grandKg))}</td><td>${totalQQDisplay}</td><td>${totalIngresosDisplay}</td><td>${totalDiasDisplay}</td></tr></tbody></table></div>`;
+
+        return html;
+    }
+
+    function generateSummaryTable(groups, isHtr, options) {
         if (!groups || groups.length === 0) return '';
 
         // Flatten items and detect crudo buckets within the provided groups
@@ -709,7 +923,7 @@ function renderBalanceModule() {
                 }
                 addToMat(groupName, kReq, r.orden);
             } else {
-                const comps = isHtr ? parseMixCompositionHtr(r.hilado || "", r.kg) : parseMixComposition(r.hilado || "", r.kg);
+                const comps = isHtr ? parseMixCompositionHtr(r.hilado || "", r.kg, { groupName: r.group }) : parseMixComposition(r.hilado || "", r.kg, { groupName: r.group });
                 comps.forEach(c => {
                     const mapped = mapComponentToBase(c.name, crudoKeys);
                     const target = mapped || c.name;
@@ -742,8 +956,8 @@ function renderBalanceModule() {
 
         let rows = Array.from(aggregated.entries()).map(([name, data]) => {
             const isAlgodon = isAlgodonText(name);
-            const ingresos = isAlgodon ? (data.kg / 5800) : null;
-            const dias = isAlgodon ? (ingresos * 1.5) : null;
+            const ingresos = (data.kg / 5800);
+            const dias = (ingresos * 1.5);
             return {
                 name,
                 kg: data.kg,
@@ -771,7 +985,7 @@ function renderBalanceModule() {
                 if (otrosItems && otrosItems.length > 0) {
                     otrosItems.forEach(it => {
                         if (it.isMezcla) {
-                            const comps = isHtr ? parseMixCompositionHtr(it.hilado || '', it.kg) : parseMixComposition(it.hilado || '', it.kg);
+                            const comps = isHtr ? parseMixCompositionHtr(it.hilado || '', it.kg, { groupName: it.group }) : parseMixComposition(it.hilado || '', it.kg, { groupName: it.group });
                             comps.forEach(c => {
                                 const mapped = mapComponentToBase(c.name, crudoKeys);
                                 const target = mapped || c.name;
@@ -795,43 +1009,145 @@ function renderBalanceModule() {
             }
         } catch(e) { console.error('generateSummaryTable OTROS aggregation error', e); }
 
-        // BotAn para agregar a OTROS (usa currentTab para seleccionar candidatos)
-        const targetOtros = btoa('OTROS');
-        const addBtn = `<div style="margin-bottom:8px; text-align:right;"><button style="padding:6px 10px; background:#10b981; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="openAddComponentModal('${targetOtros}', ${!isHtr})">+ Agregar a OTROS</button></div>`;
+        const opts = options || {};
+        const isCrudoOverride = (typeof opts.isCrudo === 'boolean') ? opts.isCrudo : !isHtr;
+        return buildSummaryHtml(rows, {
+            title: opts.title || 'Resumen de totales',
+            subtitle: opts.subtitle || 'Kg requerido',
+            showAddBtn: opts.showAddBtn !== false,
+            allowDetails: opts.allowDetails !== false,
+            isCrudo: isCrudoOverride
+        });
+    }
 
-        let html = `<div class="summary-title">RESUMEN DE TOTALES (KG REQUERIDO)</div><div class="table-wrap">` + addBtn + `<table class="sum-table"><thead><tr><th>TOTAL</th><th>KG REQ</th><th>QQ REQ</th><th>Nro. Ingresos</th><th>Nro. Dias</th></tr></thead><tbody>`;
+    function generateSummaryTableCombined(crudoGroups, htrGroups, options) {
+        const hasCrudo = crudoGroups && crudoGroups.length;
+        const hasHtr = htrGroups && htrGroups.length;
+        if (!hasCrudo && !hasHtr) return '';
 
-        let grandKg = 0, grandQQ = 0, grandIngresos = 0, grandDias = 0;
-        let grandQQHas = false;
-        let grandIngresosHas = false;
-        let grandDiasHas = false;
-        rows.forEach(r => {
-            const encoded = btoa(r.name);
-            // Nota: El botAn eliminar se muestra ahora dentro del modal de detalle.
-            html += `<tr><td style="text-align:left; font-weight:600;"> <span style="cursor:pointer;" onclick="showSummaryDetails('${encoded}')">${r.name}</span></td><td>${fmt(round0(r.kg))}</td><td>${fmt(r.qq)}</td><td>${fmt(r.ingresos)}</td><td>${fmt(r.dias)}</td></tr>`;
-            grandKg += r.kg;
-            if (r.qq !== null && r.qq !== undefined) {
-                grandQQ += r.qq;
-                grandQQHas = true;
-            }
-            if (r.ingresos !== null && r.ingresos !== undefined) {
-                grandIngresos += r.ingresos;
-                grandIngresosHas = true;
-            }
-            if (r.dias !== null && r.dias !== undefined) {
-                grandDias += r.dias;
-                grandDiasHas = true;
-            }
+        const materialsMap = new Map();
+
+        function addToMat(matName, kg, orden) {
+            if (!materialsMap.has(matName)) materialsMap.set(matName, { kg: 0, orders: new Set() });
+            const entry = materialsMap.get(matName);
+            entry.kg += kg;
+            if (orden) entry.orders.add(orden);
+        }
+
+        function collectFromGroups(groups, isHtr) {
+            if (!groups || groups.length === 0) return;
+            const allItems = groups.flatMap(g => g.items || []);
+            const crudoKeys = groups.filter(g => !g.isMezcla).map(g => g.name);
+
+            allItems.forEach(r => {
+                const isMezcla = Boolean(r.isMezcla);
+                if (!isMezcla) {
+                    const factor = isHtr ? 0.60 : 0.65;
+                    const kReq = round0(r.kg / factor);
+                    let groupName = r.group;
+                    const hilado = (r.hilado || '').toUpperCase();
+                    if (/(?:ORGANICO|ORG|ORGANIC)/i.test(hilado)) {
+                        if (/\(OCS\)/.test(hilado)) {
+                            groupName = r.group + ' (OCS)';
+                        } else if (/\(GOTS\)/.test(hilado)) {
+                            groupName = r.group + ' (GOTS)';
+                        }
+                    }
+                    addToMat(groupName, kReq, r.orden);
+                } else {
+                    const comps = isHtr ? parseMixCompositionHtr(r.hilado || "", r.kg, { groupName: r.group }) : parseMixComposition(r.hilado || "", r.kg, { groupName: r.group });
+                    comps.forEach(c => {
+                        const mapped = mapComponentToBase(c.name, crudoKeys);
+                        const target = mapped || c.name;
+                        let finalTarget = target;
+                        const hilado = (r.hilado || '').toUpperCase();
+                        if (/(?:ORGANICO|ORG|ORGANIC)/i.test(c.name)) {
+                            if (/\(OCS\)/.test(hilado)) {
+                                finalTarget = target + ' (OCS)';
+                            } else if (/\(GOTS\)/.test(hilado)) {
+                                finalTarget = target + ' (GOTS)';
+                            }
+                        }
+                        addToMat(finalTarget, c.kg, r.orden);
+                    });
+                }
+            });
+
+            const hasOtrosGroup = groups.some(g => (g.name || '').toString().toUpperCase() === 'OTROS');
+            try {
+                if (!hasOtrosGroup) {
+                    const srcBase = isHtr ? GLOBAL_DATA.htr : GLOBAL_DATA.nuevo;
+                    const src = (srcBase && srcBase.some(r => r.highlight)) ? srcBase.filter(r => r.highlight) : (srcBase || []);
+                    const otrosItems = (src || []).filter(it => (it.group || '').toString().toUpperCase() === 'OTROS');
+                    if (otrosItems && otrosItems.length > 0) {
+                        otrosItems.forEach(it => {
+                            if (it.isMezcla) {
+                                const comps = isHtr ? parseMixCompositionHtr(it.hilado || '', it.kg, { groupName: it.group }) : parseMixComposition(it.hilado || '', it.kg, { groupName: it.group });
+                                comps.forEach(c => {
+                                    const mapped = mapComponentToBase(c.name, crudoKeys);
+                                    const target = mapped || c.name;
+                                    let finalTarget = target;
+                                    const hiladoStr = (it.hilado || '').toUpperCase();
+                                    if (/(?:ORGANICO|ORG|ORGANIC)/i.test(c.name)) {
+                                        if (/\(OCS\)/.test(hiladoStr)) finalTarget = target + ' (OCS)';
+                                        else if (/\(GOTS\)/.test(hiladoStr)) finalTarget = target + ' (GOTS)';
+                                    }
+                                    addToMat(finalTarget, c.kg, it.orden);
+                                });
+                            } else {
+                                const factor = isHtr ? 0.60 : 0.65;
+                                const kgReq = round0((it.kg || 0) / factor);
+                                addToMat('OTROS', kgReq, it.orden);
+                            }
+                        });
+                    }
+                }
+            } catch(e) { console.error('generateSummaryTableCombined OTROS aggregation error', e); }
+        }
+
+        collectFromGroups(crudoGroups, false);
+        collectFromGroups(htrGroups, true);
+
+        const aggregated = new Map();
+        materialsMap.forEach((data, rawName) => {
+            const display = mapSummaryDisplayName(rawName);
+            if (!aggregated.has(display)) aggregated.set(display, { kg: 0, orders: new Set() });
+            const agg = aggregated.get(display);
+            agg.kg += data.kg;
+            data.orders.forEach(o => agg.orders.add(o));
         });
 
-        const totalQQDisplay = grandQQHas ? fmt(round0(grandQQ)) : '-';
-        const totalIngresosDisplay = grandIngresosHas ? fmt(grandIngresos) : '-';
-        const totalDiasDisplay = grandDiasHas ? fmt(grandDias) : '-';
-        html += `<tr class="total-row"><td style="text-align:right;">TOTAL GENERAL</td><td>${fmt(round0(grandKg))}</td><td>${totalQQDisplay}</td><td>${totalIngresosDisplay}</td><td>${totalDiasDisplay}</td></tr></tbody></table></div>`;
+        let rows = Array.from(aggregated.entries()).map(([name, data]) => {
+            const isAlgodon = isAlgodonText(name);
+            const ingresos = (data.kg / 5800);
+            const dias = (ingresos * 1.5);
+            return {
+                name,
+                kg: data.kg,
+                qq: isAlgodon ? round0(data.kg / 46) : null,
+                ingresos: ingresos,
+                dias: dias
+            };
+        });
 
-        // NE metrics se muestran en el footer para evitar duplicados en la tabla
+        rows.sort((a, b) => {
+            const aAlg = isAlgodonText(a.name) ? 0 : 1;
+            const bAlg = isAlgodonText(b.name) ? 0 : 1;
+            if (aAlg !== bAlg) return aAlg - bAlg;
+            const aIdx = getSummaryOrderIndexCombined(a.name);
+            const bIdx = getSummaryOrderIndexCombined(b.name);
+            if (aIdx !== bIdx) return aIdx - bIdx;
+            return b.kg - a.kg;
+        });
 
-        return html;
+        const opts = options || {};
+        return buildSummaryHtml(rows, {
+            title: opts.title || 'Resumen de totales',
+            subtitle: opts.subtitle || 'Kg requerido · Crudos + Mezclas + HTR',
+            showAddBtn: false,
+            allowDetails: false,
+            isCrudo: true
+        });
     }
 
     function deleteGroupByEncoded(encodedName, isHtr) {
@@ -842,9 +1158,9 @@ function renderBalanceModule() {
         } catch(e) { console.error('deleteGroupByEncoded', e); }
     }
 
-    function showSummaryDetails(encodedGroupName) {
+    function showSummaryDetails(encodedGroupName, isCrudoOverride) {
         const groupName = atob(encodedGroupName);
-        const isCrudo = (GLOBAL_DATA.currentTab === 'crudo');
+        const isCrudo = (typeof isCrudoOverride === 'boolean') ? isCrudoOverride : (GLOBAL_DATA.currentTab === 'crudo');
         const activeData = isCrudo 
             ? (GLOBAL_DATA.nuevo.some(r=>r.highlight) ? GLOBAL_DATA.nuevo.filter(r=>r.highlight) : GLOBAL_DATA.nuevo)
             : (GLOBAL_DATA.htr.some(r=>r.highlight) ? GLOBAL_DATA.htr.filter(r=>r.highlight) : GLOBAL_DATA.htr);
@@ -895,7 +1211,7 @@ function renderBalanceModule() {
                     totalCrudoKgReq += kReq;
                 }
             } else {
-                const comps = isHtr ? parseMixCompositionHtr(item.hilado || '', item.kg) : parseMixComposition(item.hilado || '', item.kg);
+                const comps = isHtr ? parseMixCompositionHtr(item.hilado || '', item.kg, { groupName: item.group }) : parseMixComposition(item.hilado || '', item.kg, { groupName: item.group });
                 const matching = comps.filter(c => normalizeSummaryKey(getComponentDisplayName(c.name, hiladoUpper)) === groupNorm);
                 if (matching.length) {
                     const subtotal = matching.reduce((s,c)=>s+c.kg,0);
@@ -1054,6 +1370,130 @@ function renderBalanceModule() {
         const targetGroup = atob(encodedTargetGroup);
         if (!confirm(`ADesea mover este hilado al grupo ${targetGroup}!`)) return;
         moveItemToGroup(itemId, targetGroup);
+    }
+
+    function getTituloGroupKeyFromItem(item) {
+        if (!item) return 'SIN TITULO';
+        const hil = (item.hilado || '').toString().toUpperCase();
+        if (/\b40(?:\/1)?\b[^\n\r]*\bVI\b/i.test(hil)) return '36/1';
+        if (/\b50(?:\/1)?\b[^\n\r]*\bIV\b/i.test(hil)) return '44/1';
+        const rawTitulo = (item.titulo || item.hilado || 'SIN TITULO');
+        return normalizeTitulo(rawTitulo);
+    }
+
+    function openMoveTitleModal(itemId, isHtr) {
+        try {
+            const dataArr = isHtr ? (GLOBAL_DATA.htr || []) : (GLOBAL_DATA.nuevo || []);
+            const dataArrOrig = isHtr ? (GLOBAL_DATA.htrOriginal || []) : (GLOBAL_DATA.nuevoOriginal || []);
+            let item = dataArr.find(x => x && x._id === itemId) || dataArrOrig.find(x => x && x._id === itemId);
+            if (!item) { alert('No se encontrA la fila seleccionada.'); return; }
+
+            const titlesSet = new Set();
+            dataArr.forEach(r => { titlesSet.add(getTituloGroupKeyFromItem(r)); });
+            dataArrOrig.forEach(r => { titlesSet.add(getTituloGroupKeyFromItem(r)); });
+            const placeholders = (GLOBAL_DATA.emptyGroups && (isHtr ? GLOBAL_DATA.emptyGroups.htr : GLOBAL_DATA.emptyGroups.crudo)) || [];
+            placeholders.forEach(p => { if (p && p.name) titlesSet.add(p.name); });
+            titlesSet.add('OTROS');
+
+            const titles = Array.from(titlesSet).filter(t => t && String(t).trim() !== '');
+            const extractLeadingNum = t => { const mm = String(t).match(/(\d{1,3})/); return mm ? parseInt(mm[1],10) : 9999; };
+            titles.sort((a, b) => {
+                if (a === 'SIN TITULO') return 1;
+                if (b === 'SIN TITULO') return -1;
+                return extractLeadingNum(a) - extractLeadingNum(b);
+            });
+
+            let html = `<div style="max-height:60vh; overflow:auto;">`;
+            html += `<p><strong>Orden:</strong> ${item.orden || '-'}<br><strong>Hilado:</strong> ${item.hilado || '-'}<br><strong>TÃ­tulo actual:</strong> ${getTituloGroupKeyFromItem(item) || '-'}</p>`;
+            html += `<p>Selecciona el tÃ­tulo destino:</p>`;
+            if (titles.length === 0) {
+                html += `<p class="empty-msg">Sin tÃ­tulos disponibles.</p>`;
+            } else {
+                titles.forEach(t => {
+                    const isCurrent = (String(t).toUpperCase() === String(getTituloGroupKeyFromItem(item)).toUpperCase());
+                    html += `<div style="padding:10px; border-left:4px solid ${isCurrent ? '#3b82f6' : '#e2e8f0'}; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; background:${isCurrent ? '#eff6ff' : '#f8fafc'};">
+                                <div style="font-size:12px;"><strong>${t}</strong>${isCurrent ? ' (actual)' : ''}</div>
+                                <div style="display:flex; gap:8px;">
+                                    <button style="padding:6px 10px; background:#3b82f6; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="confirmMoveItemToTitle('${itemId}', '${btoa(t)}', ${isHtr ? 'true' : 'false'})">Mover</button>
+                                </div>
+                             </div>`;
+                });
+            }
+            html += `</div>`;
+            document.getElementById('addComponentBody').innerHTML = html;
+            document.getElementById('addComponentModal').classList.add('show');
+        } catch(e) { console.error('openMoveTitleModal', e); }
+    }
+
+    function confirmMoveItemToTitle(itemId, encodedTargetTitle, isHtr) {
+        const targetTitle = atob(encodedTargetTitle);
+        if (!confirm(`ADesea mover este hilado al tÃ­tulo ${targetTitle}!`)) return;
+        moveItemToTitle(itemId, targetTitle, isHtr);
+    }
+
+    function moveItemToTitle(itemId, targetTitle, isHtr) {
+        try {
+            const dataArr = isHtr ? GLOBAL_DATA.htr : GLOBAL_DATA.nuevo;
+            const dataArrOrig = isHtr ? GLOBAL_DATA.htrOriginal : GLOBAL_DATA.nuevoOriginal;
+            let item = dataArr.find(x => x && x._id === itemId);
+            if (!item) item = dataArrOrig.find(x => x && x._id === itemId);
+            if (!item) { alert('No se encontrA la fila.'); closeAddComponentModal(); return; }
+            item.titulo = targetTitle;
+
+            identifyIncludedRows(GLOBAL_DATA.nuevo, GLOBAL_DATA.excelTotals.crudo);
+            identifyIncludedRows(GLOBAL_DATA.htr, GLOBAL_DATA.excelTotals.htr);
+            sortDataArray(GLOBAL_DATA.nuevo);
+            sortDataArray(GLOBAL_DATA.htr);
+            renderPCPModule();
+            renderBalanceModule();
+            renderTituloModule();
+            updateFooterTotals();
+            closeAddComponentModal();
+            alert('Hilado movido a tÃ­tulo ' + targetTitle);
+        } catch(e) { console.error('moveItemToTitle', e); }
+    }
+
+    function openMoveRowModal(itemId, isHtr) {
+        try {
+            const dataArr = isHtr ? (GLOBAL_DATA.htr || []) : (GLOBAL_DATA.nuevo || []);
+            const dataArrOrig = isHtr ? (GLOBAL_DATA.htrOriginal || []) : (GLOBAL_DATA.nuevoOriginal || []);
+            let item = dataArr.find(x => x && x._id === itemId) || dataArrOrig.find(x => x && x._id === itemId);
+            if (!item) {
+                alert('No se encontrA la fila seleccionada.');
+                return;
+            }
+
+            const grouped = getGroupsFromData(dataArr);
+            const emptyGroups = (GLOBAL_DATA.emptyGroups && (isHtr ? GLOBAL_DATA.emptyGroups.htr : GLOBAL_DATA.emptyGroups.crudo)) || [];
+            const groupNames = [];
+            grouped.forEach(g => { if (g && g.name) groupNames.push(g.name); });
+            emptyGroups.forEach(g => { if (g && g.name) groupNames.push(g.name); });
+            if (!groupNames.some(n => String(n).toUpperCase() === 'OTROS')) groupNames.push('OTROS');
+            const uniqueNames = Array.from(new Set(groupNames.map(n => String(n)))).filter(n => n.trim() !== '');
+
+            let html = `<div style="max-height:60vh; overflow:auto;">`;
+            html += `<p><strong>Orden:</strong> ${item.orden || '-'}<br><strong>Hilado:</strong> ${item.hilado || '-'}<br><strong>Grupo actual:</strong> ${item.group || '-'}</p>`;
+            html += `<p>Selecciona el grupo destino:</p>`;
+
+            if (uniqueNames.length === 0) {
+                html += `<p class="empty-msg">Sin grupos disponibles.</p>`;
+            } else {
+                uniqueNames.sort((a, b) => a.localeCompare(b));
+                uniqueNames.forEach(name => {
+                    const isCurrent = (String(name).toUpperCase() === String(item.group || '').toUpperCase());
+                    html += `<div style="padding:10px; border-left:4px solid ${isCurrent ? '#3b82f6' : '#e2e8f0'}; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; background:${isCurrent ? '#eff6ff' : '#f8fafc'};">
+                                <div style="font-size:12px;"><strong>${name}</strong>${isCurrent ? ' (actual)' : ''}</div>
+                                <div style="display:flex; gap:8px;">
+                                    <button style="padding:6px 10px; background:#3b82f6; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="confirmMoveItem('${itemId}', '${btoa(name)}')">Mover</button>
+                                </div>
+                             </div>`;
+                });
+            }
+
+            html += `</div>`;
+            document.getElementById('addComponentBody').innerHTML = html;
+            document.getElementById('addComponentModal').classList.add('show');
+        } catch(e) { console.error('openMoveRowModal', e); }
     }
 
     function moveItemToGroup(itemId, targetGroup) {
