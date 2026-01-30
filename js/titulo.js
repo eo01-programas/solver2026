@@ -38,8 +38,12 @@
     function generateTituloTable(rows, tipo) {
         if (!rows || rows.length === 0) return '<p class="empty-msg">Sin datos.</p>';
         const grupos = {};
-        // Helper: detectar tAtulos especiales a partir del campo `hilado` y devolver clave de grupo.
+        // Helper: detectar titulos especiales a partir del campo `hilado` y devolver clave de grupo.
         function getTituloGroupKey(r) {
+            if (r && r._tituloOverride) {
+                const rawTituloOverride = (r.titulo || r.hilado || 'SIN TITULO');
+                return normalizeTitulo(rawTituloOverride);
+            }
             const hil = (r.hilado || '').toString().toUpperCase();
             // 40/1 VI (o "40/1 VI COP ...") -> agrupar como '36/1'
             let m = hil.match(/\b40(?:\/1)?\b[^\n\r]*\bVI\b/i);
@@ -52,6 +56,12 @@
             return normalizeTitulo(rawTitulo);
         }
 
+        const groupStats = {};
+        function ensureGroupStat(key) {
+            if (!groupStats[key]) groupStats[key] = { minReal: 9e9, minEmitir: 9e9 };
+            return groupStats[key];
+        }
+
         rows.forEach(r => {
             const rawTitulo = (r.titulo || 'SIN TITULO');
             const titulo = getTituloGroupKey(r);
@@ -59,36 +69,54 @@
             grupos[titulo].items.push(r);
             grupos[titulo].rawNames.add(rawTitulo);
             grupos[titulo].totalKg += r.kg;
+
+            const stat = ensureGroupStat(titulo);
+            const itemOrden = parseFloat(String(r.orden).replace(/[^\d.]/g, '')) || 9e9;
+            const opStr = String(r.op || "").toUpperCase();
+            if (!opStr.includes("EMITIR")) {
+                if (itemOrden < stat.minReal) stat.minReal = itemOrden;
+            } else {
+                if (itemOrden < stat.minEmitir) stat.minEmitir = itemOrden;
+            }
         });
-        // Ordenar por nAmero principal (ej: 36, 40, 44) y dejar 'SIN TITULO' al final
-        const extractLeadingNum = t => { const mm = String(t).match(/(\d{1,3})/); return mm ? parseInt(mm[1],10) : 9999; };
-        const titulosOrdenados = Object.keys(grupos).sort((a, b) => {
-            if (a === "SIN TITULO") return 1; if (b === "SIN TITULO") return -1;
-            return extractLeadingNum(a) - extractLeadingNum(b);
-        });
-        let html = '';
-        // AAadir placeholders de bloques vacAos para TAtulo (si existen)
+
+        // Anadir placeholders de bloques vacios para Titulo (si existen)
         try {
             const placeholders = (GLOBAL_DATA.emptyGroups && (tipo === 'htr' ? GLOBAL_DATA.emptyGroups.htr : GLOBAL_DATA.emptyGroups.crudo))
                 ? (tipo === 'htr' ? GLOBAL_DATA.emptyGroups.htr : GLOBAL_DATA.emptyGroups.crudo)
                 : [];
             placeholders.forEach(p => {
                 if (!grupos[p.name]) {
-                    grupos[p.name] = { items: [], totalKg: 0 };
+                    grupos[p.name] = { items: [], totalKg: 0, rawNames: new Set() };
                 }
+                ensureGroupStat(p.name);
             });
         } catch(e) {}
+
+        // Ordenar por ORDEN (mismo criterio que Agrup Material)
+        const titulosOrdenados = Object.keys(grupos).sort((a, b) => {
+            const statA = groupStats[a] || { minReal: 9e9, minEmitir: 9e9 };
+            const statB = groupStats[b] || { minReal: 9e9, minEmitir: 9e9 };
+            const scoreA = (statA.minReal < 9e9) ? statA.minReal : (statA.minEmitir + 1e9);
+            const scoreB = (statB.minReal < 9e9) ? statB.minReal : (statB.minEmitir + 1e9);
+            if (scoreA !== scoreB) return scoreA - scoreB;
+            return String(a).localeCompare(String(b));
+        });
+
+        let html = '';
 
         titulosOrdenados.forEach(titulo => {
             const grupo = grupos[titulo];
             const safeTitle = (titulo || '').toString().replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-            // Mostrar el tAtulo normalizado en el encabezado; si hay nombres originales diferentes,
-            // mostrar aviso de inclusiAn (ej: '36/1 (incluye: 40/1 VI)')
+            const isHtr = (tipo === 'htr');
+            const isMez = (tipo === 'mezcla');
+            // Mostrar el titulo normalizado en el encabezado; si hay nombres originales diferentes,
+            // mostrar aviso de inclusion (ej: '36/1 (incluye: 40/1 VI)')
             let headerLabel = titulo;
             try {
                 const raws = Array.from(grupo.rawNames || []);
                 const uniqueRaw = raws.filter(rn => normalizeTitulo(rn) !== titulo);
-                // Omitir el texto "(incluye: ...)" para tAtulos especiales con sufijos romanos (ej. 'VI','IV')
+                // Omitir el texto "(incluye: ...)" para titulos especiales con sufijos romanos (ej. 'VI','IV')
                 const isSpecialSuffix = /\b(IV|VI|V|II|III|I)\b/i.test(String(titulo));
                 if (uniqueRaw.length > 0 && !isSpecialSuffix) {
                     headerLabel = `${titulo} (incluye: ${uniqueRaw.join(', ')})`;
@@ -96,17 +124,20 @@
             } catch(e) {}
             html += `<div class="table-wrap"><div class="bal-header-row"><span class="bal-title">TITULO: ${headerLabel}</span>`;
             if (!grupo.items || grupo.items.length === 0) {
-                html += `<button style="margin-left:auto; padding:6px 12px; font-size:11px; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="confirmDeleteGroup('${safeTitle}', '${tipo === 'crudo' ? 'pure' : 'htr'}')">Eliminar bloque vacAo</button>`;
+                html += `<button style="margin-left:auto; padding:6px 12px; font-size:11px; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="confirmDeleteGroup('${safeTitle}', 'titulo')">Eliminar bloque vacio</button>`;
             }
             html += `</div><table><thead><tr><th class="th-base">ORDEN</th><th class="th-base">CLIENTE</th><th class="th-base">TEMPORADA</th><th class="th-base">RSV</th><th class="th-base">OP</th><th class="th-base">MOVER</th><th class="th-base">HILADO</th><th class="th-base">NE</th><th class="th-base">TIPO</th><th class="th-base">KG SOLICITADOS</th></tr></thead><tbody>`;
             if (!grupo.items || grupo.items.length === 0) {
-                html += `<tr><td colspan="10" style="text-align:center; padding:30px; color:#999;"><em>Este bloque estA vacAo</em></td></tr>`;
+                // Permitir drop en bloques vacios
+                html += `<tr ondragover="allowDrop(event)" ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDropToTitle(event, '${safeTitle}', ${isMez}, ${isHtr})"><td colspan="10" style="text-align:center; padding:30px; color:#999;"><em>Este bloque esta vacio - Arrastra un hilado aqui</em></td></tr>`;
             }
             grupo.items.forEach(r => {
                 const neVal = getNeFromItem(r);
                 const neDisplay = (neVal !== null && !isNaN(neVal)) ? Math.round(neVal) : '-';
                 const moveBtn = `<button class="row-move-btn" title="Mover hilado" onclick="openMoveTitleModal('${r._id}', ${tipo === 'htr' ? 'true' : 'false'})">&#x21C4;</button>`;
-                html += `<tr><td>${r.orden || '-'}</td><td>${r.cliente || '-'}</td><td>${r.temporada || '-'}</td><td>${r.rsv || ''}</td><td>${r.op || ''}</td><td class="move-cell">${moveBtn}</td><td class="hilado-cell">${r.hilado || '-'}</td><td style="font-weight:600;">${neDisplay}</td><td>${r.tipo || ''}</td><td style="font-weight:600;">${fmtDecimal(r.kg)}</td></tr>`;
+                // Agregar atributos de drag & drop a cada fila
+                const dragAttrs = `draggable="true" ondragstart="handleDragStart(event, '${r._id}')" ondrop="handleDrop(event, '${r._id}')" ondragover="allowDrop(event)"`;
+                html += `<tr ${dragAttrs}><td>${r.orden || '-'}</td><td>${r.cliente || '-'}</td><td>${r.temporada || '-'}</td><td>${r.rsv || ''}</td><td>${r.op || ''}</td><td class="move-cell">${moveBtn}</td><td class="hilado-cell">${r.hilado || '-'}</td><td style="font-weight:600;">${neDisplay}</td><td>${r.tipo || ''}</td><td style="font-weight:600;">${fmtDecimal(r.kg)}</td></tr>`;
             });
             // Cambiar etiqueta inferior de SUBTOTAL a TOTAL para mantener consistencia con Balance Material
             html += `<tr class="bal-subtotal"><td colspan="9" style="text-align:right;">TOTAL ${titulo}:</td><td>${fmt(grupo.totalKg)}</td></tr></tbody></table></div>`;
