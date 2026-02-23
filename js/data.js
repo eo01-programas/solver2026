@@ -298,9 +298,31 @@
         let calcSumCrudo = 0;
         let calcSumHtr = 0;
 
+        // Seleccionar hojas fuente:
+        // 1) CRUDO: preferir nombre con "NUEVO"; si no existe, primera hoja valida sin "HTR"
+        // 2) HTR: primera hoja valida cuyo nombre incluya "HTR"
+        const sourceSheetNames = new Set();
+        const sheetCandidates = [];
+        workbook.SheetNames.forEach(sheetName => {
+            const sheet = workbook.Sheets[sheetName];
+            if(!sheet) return;
+            const jsonData = XLSX.utils.sheet_to_json(sheet, {header: 1});
+            const anchor = findHeaderRow(jsonData);
+            if(!anchor.found) return;
+            sheetCandidates.push({ sheetName, upperName: sheetName.toUpperCase() });
+        });
+
+        const explicitCrudoSheet = sheetCandidates.find(s => s.upperName.includes("NUEVO"));
+        const fallbackCrudoSheet = sheetCandidates.find(s => !s.upperName.includes("HTR"));
+        const htrSheet = sheetCandidates.find(s => s.upperName.includes("HTR"));
+
+        if (explicitCrudoSheet) sourceSheetNames.add(explicitCrudoSheet.sheetName);
+        else if (fallbackCrudoSheet) sourceSheetNames.add(fallbackCrudoSheet.sheetName);
+        if (htrSheet) sourceSheetNames.add(htrSheet.sheetName);
+
         workbook.SheetNames.forEach(sheetName => {
             const upperName = sheetName.toUpperCase();
-            if (upperName.includes("NUEVO") || upperName.includes("HTR")) {
+            if (sourceSheetNames.has(sheetName)) {
                 const sheet = workbook.Sheets[sheetName];
                 const jsonData = XLSX.utils.sheet_to_json(sheet, {header: 1});
                 const anchor = findHeaderRow(jsonData);
