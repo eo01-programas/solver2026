@@ -613,7 +613,9 @@ function getBaseMaterialToken(s) {
     }
 
     // Si tiene base y modificador, combinar
+    // Excepción: PIMA BCI se muestra solo como BCI
     if (baseMaterial && modifier) {
+        if (baseMaterial === 'PIMA' && modifier === ' BCI') return 'BCI';
         return baseMaterial + modifier;
     }
 
